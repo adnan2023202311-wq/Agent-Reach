@@ -1,0 +1,25 @@
+# Python backend
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+data/
+
+# Secrets — real API keys live in .env starting this milestone.
+# .env.example is intentionally NOT ignored; it has no real values.
+.env
+
+# Frontend (frontend/ has its own .gitignore for build artifacts,
+# node_modules, etc. — this just adds the frontend's real .env, which
+# that file didn't need to know about until it started making real
+# API calls with real base URLs).
+frontend/.env
+
+# Editors / OS
+.DS_Store
+.vscode/
+.idea/

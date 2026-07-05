@@ -1,0 +1,53 @@
+# =========================
+# Python
+# =========================
+**/__pycache__/
+**/*.py[cod]
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/
+**/.venv/
+**/venv/
+
+# Environment
+**/.env
+**/.env.local
+
+# Python build
+**/*.egg-info/
+**/.coverage
+**/htmlcov/
+
+# =========================
+# Node / React / Vite
+# =========================
+**/node_modules/
+**/dist/
+**/.vite/
+**/.next/
+
+# Package managers
+**/package-lock.json
+**/pnpm-lock.yaml
+
+# =========================
+# IDE
+# =========================
+.vscode/
+.idea/
+
+# =========================
+# OS
+# =========================
+.DS_Store
+Thumbs.db
+
+# =========================
+# Logs
+# =========================
+*.log
+
+# =========================
+# Database
+# =========================
+*.db

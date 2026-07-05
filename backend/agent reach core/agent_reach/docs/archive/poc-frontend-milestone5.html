@@ -1,0 +1,318 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agent Reach</title>
+<style>
+  :root {
+    --ink: #14171F;
+    --paper: #F2F3F5;
+    --panel: #FFFFFF;
+    --line: #DADFE6;
+    --muted: #545B66;
+    --accent: #3454D1;
+    --accent-ink: #1B2B86;
+    --accent-soft: #EAEFFC;
+    --good: #1F8A5F;
+    --bad: #C6403A;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    line-height: 1.5;
+  }
+
+  main {
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 56px 24px 96px;
+  }
+
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    color: var(--accent-ink);
+    margin: 0 0 12px;
+  }
+
+  h1 {
+    font-size: 28px;
+    line-height: 1.3;
+    letter-spacing: -0.01em;
+    margin: 0 0 8px;
+  }
+
+  .sub {
+    color: var(--muted);
+    margin: 0 0 32px;
+    max-width: 52ch;
+  }
+
+  .pipeline {
+    display: flex;
+    list-style: none;
+    padding: 0;
+    margin: 0 0 28px;
+    gap: 6px;
+    font-family: var(--mono);
+    font-size: 12px;
+  }
+
+  .pipeline li {
+    flex: 1;
+    text-align: center;
+    padding: 8px 4px;
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    color: #8A919C;
+    background: var(--panel);
+    transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+  }
+
+  .pipeline li.active {
+    color: var(--accent-ink);
+    border-color: var(--accent);
+    animation: pulse 1.1s ease-in-out infinite;
+  }
+
+  .pipeline li.done {
+    color: var(--good);
+    border-color: var(--good);
+  }
+
+  @keyframes pulse {
+    0%, 100% { background: var(--panel); }
+    50% { background: var(--accent-soft); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .pipeline li.active { animation: none; background: var(--accent-soft); }
+  }
+
+  form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  textarea {
+    width: 100%;
+    min-height: 96px;
+    padding: 14px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    font-family: var(--sans);
+    font-size: 15px;
+    resize: vertical;
+    background: var(--panel);
+    color: var(--ink);
+  }
+
+  textarea:focus-visible, button:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  button {
+    align-self: flex-start;
+    padding: 10px 22px;
+    border: none;
+    border-radius: 6px;
+    background: var(--accent);
+    color: white;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  button:hover:not(:disabled) { background: var(--accent-ink); }
+  button:disabled { opacity: 0.5; cursor: progress; }
+
+  .result {
+    margin-top: 40px;
+    padding-top: 24px;
+    border-top: 1px solid var(--line);
+  }
+
+  .result h2, .result h3 {
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    margin: 0 0 8px;
+  }
+
+  .result h3 { margin-top: 24px; }
+
+  #answer {
+    font-size: 16px;
+    white-space: pre-wrap;
+    margin: 0;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--mono);
+    font-size: 13px;
+  }
+
+  th, td {
+    text-align: left;
+    padding: 6px 8px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  th { color: var(--muted); font-weight: 500; }
+
+  .status-succeeded { color: var(--good); }
+  .status-failed { color: var(--bad); }
+
+  .error {
+    margin-top: 24px;
+    padding: 12px 14px;
+    border: 1px solid var(--bad);
+    border-radius: 6px;
+    color: var(--bad);
+    font-size: 14px;
+  }
+
+  @media (max-width: 480px) {
+    main { padding: 32px 16px 64px; }
+    .pipeline { font-size: 10px; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <p class="eyebrow">AGENT REACH</p>
+  <h1>Ask something. Watch it move through the system.</h1>
+  <p class="sub">
+    This is the research pipeline: your request goes through the planner
+    and dispatcher, gets answered by the Research Agent, and comes back
+    here.
+  </p>
+
+  <ol class="pipeline" id="pipeline">
+    <li data-stage="plan">Plan</li>
+    <li data-stage="dispatch">Dispatch</li>
+    <li data-stage="agent">Agent</li>
+    <li data-stage="respond">Respond</li>
+  </ol>
+
+  <form id="chat-form">
+    <textarea id="message" placeholder="Ask the research agent something…" required></textarea>
+    <button type="submit" id="submit-btn">Send</button>
+  </form>
+
+  <section class="result" id="result" hidden>
+    <h2>Response</h2>
+    <p id="answer"></p>
+
+    <h3>Pipeline trace</h3>
+    <table>
+      <thead>
+        <tr><th>Agent</th><th>Status</th><th>Attempts</th><th>Duration</th></tr>
+      </thead>
+      <tbody id="trace-body"></tbody>
+    </table>
+  </section>
+
+  <p class="error" id="error" hidden></p>
+</main>
+
+<script>
+  const STAGES = ["plan", "dispatch", "agent", "respond"];
+  const form = document.getElementById("chat-form");
+  const messageInput = document.getElementById("message");
+  const pipeline = document.getElementById("pipeline");
+  const result = document.getElementById("result");
+  const errorEl = document.getElementById("error");
+  const answerEl = document.getElementById("answer");
+  const traceBody = document.getElementById("trace-body");
+  const submitBtn = document.getElementById("submit-btn");
+
+  function setStage(stage) {
+    const targetIndex = STAGES.indexOf(stage);
+    STAGES.forEach((name, index) => {
+      const li = pipeline.querySelector(`[data-stage="${name}"]`);
+      li.classList.remove("active", "done");
+      if (index < targetIndex) li.classList.add("done");
+      if (index === targetIndex) li.classList.add("active");
+    });
+  }
+
+  function resetPipeline() {
+    pipeline.querySelectorAll("li").forEach((li) => li.classList.remove("active", "done"));
+  }
+
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const message = messageInput.value.trim();
+    if (!message) return;
+
+    result.hidden = true;
+    errorEl.hidden = true;
+    submitBtn.disabled = true;
+    resetPipeline();
+    setStage("plan");
+
+    // These two intermediate stages are a UI approximation, not a live
+    // server progress feed — the backend returns one response, it
+    // doesn't stream stage-by-stage. Good enough to make the pipeline
+    // legible; a real progress stream is a later milestone if needed.
+    const dispatchTimer = setTimeout(() => setStage("dispatch"), 150);
+    const agentTimer = setTimeout(() => setStage("agent"), 400);
+
+    try {
+      const response = await fetch("/api/v1/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message }),
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.detail || `Request failed (${response.status})`);
+      }
+
+      clearTimeout(dispatchTimer);
+      clearTimeout(agentTimer);
+      setStage("respond");
+
+      answerEl.textContent = data.answer;
+      traceBody.innerHTML = "";
+      for (const r of data.results) {
+        const row = document.createElement("tr");
+        const duration = r.duration_ms ? `${Math.round(r.duration_ms)} ms` : "—";
+        row.innerHTML = `
+          <td>${r.agent_type}</td>
+          <td class="status-${r.status}">${r.status}</td>
+          <td>${r.attempts}</td>
+          <td>${duration}</td>
+        `;
+        traceBody.appendChild(row);
+      }
+      result.hidden = false;
+    } catch (err) {
+      clearTimeout(dispatchTimer);
+      clearTimeout(agentTimer);
+      resetPipeline();
+      errorEl.textContent = err.message;
+      errorEl.hidden = false;
+    } finally {
+      submitBtn.disabled = false;
+    }
+  });
+</script>
+</body>
+</html>
