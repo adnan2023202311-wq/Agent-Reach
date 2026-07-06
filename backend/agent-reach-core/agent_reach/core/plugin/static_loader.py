@@ -93,8 +93,11 @@ class StaticPluginLoader(PluginLoader):
         Returns:
             True if unloaded successfully, False otherwise
         """
-        if plugin_id in self._instances:
-            del self._instances[plugin_id]
+        if plugin_id in self._plugins:  # FIXED: Check _plugins, not _instances
+            del self._plugins[plugin_id]
+            # Also remove instance if loaded
+            if plugin_id in self._instances:
+                del self._instances[plugin_id]
             return True
         return False
     
