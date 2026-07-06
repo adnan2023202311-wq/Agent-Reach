@@ -1,0 +1,43 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Contract Schema",
+  "type": "object",
+  "required": ["id", "name", "version", "plugin_id", "type", "schema"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Unique contract identifier"
+    },
+    "name": {
+      "type": "string",
+      "description": "Human-readable contract name"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "description": "Semantic version"
+    },
+    "plugin_id": {
+      "type": "string",
+      "description": "Plugin this contract belongs to"
+    },
+    "type": {
+      "type": "string",
+      "enum": ["input", "output", "config", "schema"],
+      "description": "Contract type"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["draft", "active", "deprecated", "rejected"],
+      "description": "Contract status"
+    },
+    "schema": {
+      "type": "object",
+      "description": "JSON schema for validation"
+    },
+    "description": {
+      "type": "string",
+      "description": "What this contract defines"
+    }
+  }
+}
