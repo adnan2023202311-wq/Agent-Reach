@@ -70,7 +70,7 @@ def test_validate_contract_valid(
     asyncio.run(registry.register(sample_contract))
     
     valid_data = {"query": "test query", "max_results": 10}
-    errors = asyncio.run(validator.validate_contract(sample_contract.id, valid_data))
+    errors = asyncio.run(validator.validate(sample_contract.id, valid_data))
     assert len(errors) == 0
 
 
@@ -84,7 +84,7 @@ def test_validate_contract_invalid(
     
     # Missing required field "query"
     invalid_data = {"max_results": 10}
-    errors = asyncio.run(validator.validate_contract(sample_contract.id, invalid_data))
+    errors = asyncio.run(validator.validate(sample_contract.id, invalid_data))
     assert len(errors) > 0
 
 
@@ -110,7 +110,7 @@ def test_contract_status_inactive(
     asyncio.run(registry.register(inactive_contract))
     
     data = {"query": "test"}
-    errors = asyncio.run(validator.validate_contract("inactive.contract", data))
+    errors = asyncio.run(validator.validate("inactive.contract", data))
     assert len(errors) > 0  # Should have errors - contract not active
 
 

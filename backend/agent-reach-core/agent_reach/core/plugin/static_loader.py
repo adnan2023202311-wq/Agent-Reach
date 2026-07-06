@@ -80,7 +80,7 @@ class StaticPluginLoader(PluginLoader):
             self._instances[plugin_id] = instance
             return instance
         except Exception as e:
-            print(f"Error loading plugin {plugin_id}: {e}")
+            # Logging handled by caller
             return None
     
     async def unload_plugin(self, plugin_id: str) -> bool:

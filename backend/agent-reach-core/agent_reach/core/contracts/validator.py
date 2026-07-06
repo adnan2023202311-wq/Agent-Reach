@@ -6,7 +6,8 @@ Validates plugin contracts against schemas.
 
 from __future__ import annotations
 
-from typing import Any
+import asyncio
+from typing import Any, Dict, List, Optional
 
 from .interfaces import ContractRegistry
 from .models import Contract, ContractStatus, ContractType
@@ -31,22 +32,22 @@ class ContractValidator:
         """
         self._registry = registry
     
-    async def validate_contract(
+    async def validate(
         self,
         contract_id: str,
-        data: dict[str, Any] | None = None
-    ) -> list[str]:
+        data: Dict[str, Any]
+    ) -> List[str]:
         """
         Validate data against a contract.
         
         Args:
             contract_id: The ID of the contract
-            data: The data to validate (optional)
+            data: The data to validate
             
         Returns:
             List of validation errors (empty if valid)
         """
-        errors: list[str] = []
+        errors: List[str] = []
         
         # Get contract
         contract = await self._registry.get(contract_id)
@@ -59,11 +60,7 @@ class ContractValidator:
             errors.append(f"Contract {contract_id} is not active")
             return errors
         
-        # If no data provided, just validate contract structure
-        if data is None:
-            return await self._validate_contract_structure(contract)
-        
-        # Validate data against schema
+        # Validate against schema
         schema = contract.schema
         
         # Check required fields
@@ -83,33 +80,6 @@ class ContractValidator:
                             f"Field '{field_name}' has wrong type. "
                             f"Expected {expected_type}"
                         )
-        
-        return errors
-    
-    async def _validate_contract_structure(self, contract: Contract) -> list[str]:
-        """
-        Validate a contract's structure.
-        
-        Args:
-            contract: The contract to validate
-            
-        Returns:
-            List of validation errors (empty if valid)
-        """
-        errors: list[str] = []
-        
-        # Check required fields
-        if not contract.id:
-            errors.append("Contract ID is required")
-        
-        if not contract.name:
-            errors.append("Contract name is required")
-        
-        if not contract.plugin_id:
-            errors.append("Plugin ID is required")
-        
-        if not contract.schema:
-            errors.append("Schema is required")
         
         return errors
     
