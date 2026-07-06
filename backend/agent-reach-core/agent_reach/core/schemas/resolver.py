@@ -42,7 +42,8 @@ class SchemaResolver:
                         schema = json.load(f)
                         schema_id = filename.replace('.json', '')
                         self._schemas[schema_id] = schema
-                except Exception as e:
+                except Exception:
+                    pass  # Logging handled by caller
                     # Logging handled by caller
     
     def get_schema(self, schema_id: str) -> dict[str, Any] | None:
