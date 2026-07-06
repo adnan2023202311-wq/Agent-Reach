@@ -9,7 +9,8 @@ plugin architecture.
 ```
 backend/agent-reach-core/       Plugin system foundation (Milestone 1) +
                                 Execution Engine (Milestone 2)
-backend/agent reach core/       Kernel, API, and agents (original architecture)
+backend/agent reach core/       Kernel, API, agents, and Agent Runtime
+                                (Milestone 3)
 frontend/Agent Canvas/          Production frontend (TanStack Start)
 docs/                           Project documentation
 ```
@@ -33,6 +34,16 @@ docs/                           Project documentation
 - Kernel Bridge (integrates plugin system with existing kernel)
 - Comprehensive tests
 
+### Milestone 3 — Agent Runtime Layer (Complete)
+- Agent Runtime (session lifecycle, state transitions, cancellation)
+- Agent Base (abstract class with initialize/execute/shutdown hooks)
+- Planner (Plan, PlanStep, sequential and conditional branch support)
+- Tool Executor (timeout handling, exception isolation, metrics)
+- Memory Bridge (read/write memory, conversation and execution history)
+- Agent Communication (in-process messaging, delegation, events)
+- Runtime Monitoring (execution metrics, statistics, agent status)
+- Comprehensive tests
+
 ## Running Tests
 
 ```bash
@@ -40,7 +51,7 @@ docs/                           Project documentation
 cd backend/agent-reach-core
 pytest tests/
 
-# Kernel tests
+# Kernel + Runtime tests
 cd "backend/agent reach core/agent_reach"
 pytest tests/
 ```
@@ -51,5 +62,6 @@ pytest tests/
 - **Kernel Owns Orchestration**: The kernel coordinates, plugins execute
 - **Frontend is Presentation Only**: No business logic in the UI
 - **Frozen Architecture**: No redesign without explicit approval
+- **Composition over Inheritance**: Small, focused classes
 
 See `docs/PROJECT_CHARTER.md` for the full architectural specification.
