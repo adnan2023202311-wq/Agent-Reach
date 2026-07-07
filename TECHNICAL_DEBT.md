@@ -67,6 +67,56 @@
 - **Scheduler is single-process**: No distributed task queue (e.g., Celery,
   RQ). Acceptable for single-node deployments.
 
+### Milestone 5 (Complete)
+- **M5 WorkflowEngine is sequential**: The M5 spec calls for sequential
+  step execution; the engine does NOT run independent steps in
+  parallel the way M4\'s capability-driven DAG WorkflowEngine
+  does. Independent branches in an M5 workflow still execute in
+  declared order. Parallel branches belong to a future milestone
+  (M5 deliberately reuses M4 for that use case).
+- **WorkflowMonitor is in-memory only**: Like the M4 metrics layer,
+  workflow statistics are not persisted to disk or pushed to an
+  external system. Cross-process aggregation belongs to a future
+  milestone.
+- **WorkflowPersistence is JSON-only**: Per the M5 specification,
+  no database. JSON is fine for a handful of workflows but does
+  not scale; a database-backed persistence layer belongs to a
+  future milestone.
+- **Template resolver is intentionally narrow**: Custom template
+  resolver (no Jinja2) supports only `variables.x` and
+  `outputs.step_id.key` paths. No loops, no conditionals, no
+  arithmetic, no function calls. This is by design — workflow
+  inputs should not host arbitrary code execution.
+- **Conditions use structured operators only**: A Condition is a
+  (variable, op, value) triple. No `and`/`or` composition; nested
+  expressions belong to a future milestone.
+- **`StepExecutionRecord.attempts` semantics**: The recorded
+  attempts field reflects the total number of underlying agent
+  invocations across engine-level retries, not just the engine
+  retry count. This matches what an audit log needs (how many
+  agent calls actually ran), but the workflow\'s configured
+  retry policy is the *outer* count and is visible in the
+  workflow definition itself.
+- **WorkflowValidator inspects `ToolManager._tools` directly**:
+  the registry-aware tool check reaches into the private
+  `_tools` dict of ToolManager because ToolManager has no public
+  list_registered() accessor yet. A public accessor would be a
+  one-line M5.5 follow-up; the dependency is documented here so
+  it does not surprise future maintainers.
+- **WorkflowEngine retries inside the dispatcher**: when the
+  orchestrator (AgentOrchestrator) already has internal retries
+  via AgentDispatcher, the engine\'s outer retry loop and the
+  dispatcher\'s inner retry loop compose multiplicatively. A
+  step configured with `max_attempts=2` and a dispatcher with
+  `max_attempts=3` results in up to 6 underlying invocations.
+  This is correct (the policy of each layer is honored) but is
+  not obvious from the workflow definition; future work could
+  expose the effective per-step attempt budget up front.
+- **Synchronous execution via `asyncio.run`**: `run_sync()` uses
+  `asyncio.run()` per call, which creates a fresh event loop.
+  Calling it from inside an already-running event loop will
+  raise. The async `run()` API is the one to use in async code.
+
 ## Known Limitations
 
 - `InMemoryRegistry` and `InMemoryContractRegistry` have no persistence.
@@ -99,3 +149,25 @@
 5. **In-process scaling ceiling**: The Scheduler, Workflow Engine, and
    Observability layer are all single-process. Horizontal scaling would require
    significant redesign.
+
+## Risks After Milestone 5
+
+6. **M5 and M4 workflow engines coexist**: There are now TWO workflow
+   engines in the codebase:
+   - M4\'s `workflow/engine.py` — capability-driven DAG, integrates
+     with evaluation/reflection/observability.
+   - M5\'s `workflows/engine.py` — agent/tool-driven, sequential,
+     named workflows with persistence and validation.
+   Callers must pick the one that fits their use case. A future
+   milestone could unify them or make the choice explicit via a
+   single orchestrator.
+7. **Workflow authoring surface**: workflows are constructed
+   programmatically today. A DSL or YAML authoring layer would
+   make workflows easier to write by hand, but is out of scope
+   for M5.
+8. **No cross-workflow transactions**: a workflow that mutates
+   shared state (memory, knowledge) does not have rollback
+   semantics. Failed mid-workflow, side effects persist.
+9. **WorkflowRegistry is process-local**: there is no inter-process
+   discovery or replication. A workflow registered in process A
+   is invisible to process B.

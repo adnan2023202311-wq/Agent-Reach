@@ -60,6 +60,44 @@ docs/                           Project documentation
 - Integration Tests (end-to-end pipeline verification)
 - Documentation updated
 
+### Milestone 5 — Workflow & Orchestration Layer (Complete)
+- **Workflow Models**: Workflow, WorkflowStep, WorkflowContext,
+  WorkflowState, WorkflowResult, Condition (structured
+  conditional with JSON round-trip), StepExecutionRecord.
+- **WorkflowEngine**: runs workflows synchronously (run_sync) or
+  asynchronously (run); executes steps in declared order;
+  honors `condition` to skip branches and `depends_on` to skip
+  dependents when a dependency was skipped/failed; resolves
+  `{{ variables.x }}` and `{{ outputs.step_id.key }}` templates
+  in inputs and workflow outputs; retries failed steps per the
+  resolved `RetryPolicy` (step → workflow → engine default →
+  none).
+- **WorkflowRegistry**: in-memory lookup table for named
+  workflows; per-name version counter; bulk-load helper.
+- **AgentOrchestration**: workflows invoke M3 agents through
+  `AgentDispatcher` (sequential, conditional, shared context).
+- **ToolOrchestration**: workflows invoke M3 tools through
+  `ToolExecutor` with parameter passing and output propagation.
+- **WorkflowPersistence**: JSON-only save/load for single
+  workflows, lists of workflows, single results, and lists of
+  results. Atomic writes (sibling `.tmp` + `os.replace`).
+- **WorkflowValidator**: structural checks (cycles, missing
+  targets, undefined variables, forward step-output references,
+  malformed workflow outputs, unknown conditions) plus optional
+  registry-aware checks for unregistered agents/tools.
+- **WorkflowMonitor**: in-process stats — total, completed,
+  failed, cancelled, active, duration distribution, per-workflow
+  run count.
+- **Integration Tests**: 10 tests exercising Registry, Engine,
+  Persistence, Validation, and Monitoring together.
+- **Documentation**: this README + a dedicated M5 doc.
+
+The M5 layer lives in
+`backend/agent reach core/agent_reach/workflows/` and is distinct
+from M4\'s capability-driven DAG WorkflowEngine in
+`backend/agent reach core/agent_reach/workflow/` — both remain
+in use and can coexist.
+
 ## Running Tests
 
 ```bash
@@ -67,9 +105,11 @@ docs/                           Project documentation
 cd backend/agent-reach-core
 pytest tests/
 
-# Kernel + Runtime + M4 tests
+# Kernel + Runtime + M4 + M5 tests
 cd "backend/agent reach core"
-pytest agent_reach/tests/ --ignore=agent_reach/tests/test_composition.py
+pytest agent_reach/tests/ \
+  --ignore=agent_reach/tests/test_composition.py \
+  --ignore=agent_reach/tests/test_model_client.py
 ```
 
 ## Architecture Principles
