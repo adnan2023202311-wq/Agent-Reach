@@ -31,12 +31,12 @@ import type {
 import { agentsData, chatAgents as staticChatAgents } from "@/features/agents/data";
 import { providersData, providerCatalog as staticProviderCatalog, topbarProviders as staticTopbarProviders, topbarModels as staticTopbarModels } from "@/features/providers/data";
 import { toolsData } from "@/features/tools/data";
-import { suggestions as staticSuggestions, recentChats as staticRecent } from "@/features/chat/data";
+import { chatSuggestions as staticChatSuggestions, agentSuggestions as staticAgentSuggestions, recentChats as staticRecent, type Suggestion } from "@/features/chat/data";
 import {
-  activity as staticActivity,
+  activityStats as staticActivity,
   recentChats as dashboardRecent,
   activeAgents as dashboardAgents,
-  tools as dashboardTools,
+  dashboardTools as dashboardTools,
 } from "@/features/dashboard/data";
 
 // --- helpers to merge backend data with static UI metadata ---
@@ -196,7 +196,7 @@ async function ensureSession(): Promise<string> {
 }
 
 export const chatHttpService: ChatService = {
-  suggestions: (mode) => staticSuggestions.filter(s => !mode || s.mode === mode || mode === "auto"),
+  suggestions: (mode) => mode === "agent" ? staticAgentSuggestions : staticChatSuggestions,
   recent: async () => staticRecent,
   recentSync: () => staticRecent,
   sendMessage: async (input: SendMessageInput): Promise<Message> => {
@@ -217,10 +217,8 @@ export const chatHttpService: ChatService = {
         id: res.message_id || `m_${Date.now()}`,
         role: "assistant",
         content: res.content || "…",
-        timestamp: new Date().toISOString(),
-        agentId: input.agentId,
-        mode: input.mode,
-      };
+        createdAt: Date.now(),
+      } as Message;
     } catch {
       // fallback to legacy /api/v1/chat
       try {
@@ -238,19 +236,15 @@ export const chatHttpService: ChatService = {
           id: `m_${Date.now()}`,
           role: "assistant",
           content: res.answer || res.content || "Done.",
-          timestamp: new Date().toISOString(),
-          agentId: input.agentId,
-          mode: input.mode,
-        };
+          createdAt: Date.now(),
+        } as Message;
       } catch (e:any) {
         return {
           id: `m_${Date.now()}`,
           role: "assistant",
           content: `Backend unavailable: ${e?.message || e}`,
-          timestamp: new Date().toISOString(),
-          agentId: input.agentId,
-          mode: input.mode,
-        };
+          createdAt: Date.now(),
+        } as Message;
       }
     }
   },
