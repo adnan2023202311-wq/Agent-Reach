@@ -54,7 +54,7 @@ import {
   type ProviderStatus,
 } from "@/services";
 
-const providersData = providersService.listSync();
+const providersDataFallback = providersService.listSync();
 
 
 export const Route = createFileRoute("/settings/providers")({
@@ -95,7 +95,16 @@ const FILTERS: { id: "all" | ProviderStatus; label: string }[] = [
 function ProvidersPage() {
   const onNavigate = useAppNavigation("settings");
   const topbar = useTopbar();
-  const [providers, setProviders] = React.useState<Provider[]>(providersData);
+  const [providers, setProviders] = React.useState<Provider[]>(providersDataFallback);
+
+  // M8: load providers from production API
+  React.useEffect(() => {
+    let mounted = true;
+    providersService.list().then((data) => {
+      if (mounted && data?.length) setProviders(data);
+    }).catch(()=>{});
+    return () => { mounted = false; };
+  }, []);
   const [filter, setFilter] = React.useState<(typeof FILTERS)[number]["id"]>("all");
   const [configuring, setConfiguring] = React.useState<Provider | null>(null);
 

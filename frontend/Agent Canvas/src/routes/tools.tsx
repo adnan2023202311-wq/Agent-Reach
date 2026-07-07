@@ -39,7 +39,7 @@ import {
   type ToolStatus,
 } from "@/services";
 
-const toolsData = toolsService.listSync();
+const toolsDataFallback = toolsService.listSync();
 
 
 export const Route = createFileRoute("/tools")({
@@ -72,7 +72,16 @@ const FILTERS: { id: "all" | ToolStatus; label: string }[] = [
 function ToolsPage() {
   const onNavigate = useAppNavigation("tools");
   const topbar = useTopbar();
-  const [tools, setTools] = React.useState<Tool[]>(toolsData);
+  const [tools, setTools] = React.useState<Tool[]>(toolsDataFallback);
+
+  // Milestone 8: load tools from production API
+  React.useEffect(() => {
+    let mounted = true;
+    toolsService.list().then((data) => {
+      if (mounted && data && data.length) setTools(data);
+    }).catch(() => {});
+    return () => { mounted = false; };
+  }, []);
 
   const [filter, setFilter] = React.useState<(typeof FILTERS)[number]["id"]>("all");
   const [configuring, setConfiguring] = React.useState<Tool | null>(null);

@@ -48,7 +48,9 @@ import {
 } from "@/services";
 
 const providerCatalog = providersService.catalogSync();
-const agentsData = agentsService.listSync();
+// Milestone 8: agents loaded async from backend via agentsService.list()
+// fallback to static listSync for SSR / initial paint
+const agentsDataFallback = agentsService.listSync();
 
 
 export const Route = createFileRoute("/agents")({
@@ -83,7 +85,21 @@ const MAX_TOKENS_LIMIT = 16000;
 function AgentsPage() {
   const onNavigate = useAppNavigation("agents");
   const topbar = useTopbar();
-  const [agents, setAgents] = React.useState<Agent[]>(agentsData);
+  const [agents, setAgents] = React.useState<Agent[]>(agentsDataFallback);
+  const [loading, setLoading] = React.useState(true);
+
+  // Milestone 8: load agents from production API
+  React.useEffect(() => {
+    let mounted = true;
+    agentsService.list().then((data) => {
+      if (mounted && data && data.length) setAgents(data);
+    }).catch(() => {
+      // keep fallback
+    }).finally(() => {
+      if (mounted) setLoading(false);
+    });
+    return () => { mounted = false; };
+  }, []);
 
   const [filter, setFilter] = React.useState<(typeof FILTERS)[number]["id"]>("all");
   const [configuring, setConfiguring] = React.useState<Agent | null>(null);

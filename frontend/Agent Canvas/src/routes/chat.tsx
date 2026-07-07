@@ -106,25 +106,57 @@ function ChatPage() {
   const trimmed = draft.trim();
   const canSend = trimmed.length > 0 && trimmed.length <= CHAT_MAX_CHARS;
 
-  const sendMessage = (text: string) => {
+  const [sending, setSending] = React.useState(false);
+
+  const sendMessage = async (text: string) => {
     const value = text.trim();
-    if (!value) return;
+    if (!value || sending) return;
     const now = Date.now();
-    const user: Message = { id: `u_${now}`, role: "user", content: value, createdAt: now };
-    const reply: Message = {
-      id: `a_${now + 1}`,
-      role: "assistant",
-      content: buildMockReply(value, mode, mode === "agent" ? agent : null),
-      createdAt: now + 1,
-    };
-    setMessages((m) => [...m, user, reply]);
+    const user: Message = { id: `u_${now}`, role: "user", content: value, createdAt: now, mode, agentId: mode === "agent" ? agent.id : undefined };
+    setMessages((m) => [...m, user]);
     setDraft("");
     setFiles([]);
+    setSending(true);
+    try {
+      // Milestone 8 — Production API integration
+      // Uses chatService.sendMessage which calls /api/v1/conversations/... → IntelligentPipeline
+      const reply = await chatService.sendMessage({
+        content: value,
+        mode,
+        providerId: provider.id,
+        modelId: model.id.replace(`${provider.id}:`, ""),
+        agentId: mode === "agent" ? agent.id : undefined,
+      });
+      // Normalize reply shape to Message
+      const assistant: Message = {
+        id: reply.id || `a_${Date.now()}`,
+        role: "assistant",
+        content: reply.content,
+        createdAt: typeof reply.createdAt === "string" ? new Date(reply.createdAt).getTime() : (reply.createdAt || Date.now()),
+        mode: reply.mode || mode,
+        agentId: reply.agentId || (mode === "agent" ? agent.id : undefined),
+      };
+      setMessages((m) => [...m, assistant]);
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to send message");
+      // Fallback to mock reply to keep UI responsive in dev
+      const fallback: Message = {
+        id: `a_${Date.now()}`,
+        role: "assistant",
+        content: buildMockReply(value, mode, mode === "agent" ? agent : null),
+        createdAt: Date.now(),
+        mode,
+        agentId: mode === "agent" ? agent.id : undefined,
+      };
+      setMessages((m) => [...m, fallback]);
+    } finally {
+      setSending(false);
+    }
   };
 
   const handleSend = () => {
-    if (!canSend) return;
-    sendMessage(draft);
+    if (!canSend || sending) return;
+    void sendMessage(draft);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {

@@ -26,10 +26,10 @@ import { useAppNavigation } from "@/hooks/use-app-navigation";
 import { useTopbar } from "@/hooks/use-topbar";
 import { dashboardService, type ActivityStat } from "@/services";
 
-const activityStats = dashboardService.activitySync();
-const recentChats = dashboardService.recentChatsSync();
-const activeAgents = dashboardService.activeAgentsSync();
-const dashboardTools = dashboardService.toolsSync();
+const activityStatsFallback = dashboardService.activitySync();
+const recentChatsFallback = dashboardService.recentChatsSync();
+const activeAgentsFallback = dashboardService.activeAgentsSync();
+const dashboardToolsFallback = dashboardService.toolsSync();
 
 
 export const Route = createFileRoute("/")({
@@ -51,6 +51,24 @@ export const Route = createFileRoute("/")({
 function DashboardPage() {
   const onNavigate = useAppNavigation("dashboard");
   const topbar = useTopbar();
+
+  const [activityStats, setActivityStats] = React.useState(activityStatsFallback);
+  const [recentChats, setRecentChats] = React.useState(recentChatsFallback);
+  const [activeAgents, setActiveAgents] = React.useState(activeAgentsFallback);
+  const [dashboardTools, setDashboardTools] = React.useState(dashboardToolsFallback);
+
+  // Milestone 8: load dashboard snapshot from production API
+  React.useEffect(() => {
+    let mounted = true;
+    dashboardService.snapshot().then((snap) => {
+      if (!mounted) return;
+      if (snap.activity?.length) setActivityStats(snap.activity as any);
+      if (snap.recentChats?.length) setRecentChats(snap.recentChats as any);
+      if (snap.activeAgents?.length) setActiveAgents(snap.activeAgents as any);
+      if (snap.tools?.length) setDashboardTools(snap.tools as any);
+    }).catch(()=>{});
+    return () => { mounted = false; };
+  }, []);
 
   return (
     <AppShell
