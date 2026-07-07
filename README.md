@@ -44,6 +44,22 @@ docs/                           Project documentation
 - Runtime Monitoring (execution metrics, statistics, agent status)
 - Comprehensive tests
 
+### Milestone 4 — Autonomous AI Operating System (Complete)
+- Observability Layer (in-process execution tracing with spans and traces)
+- Runtime Metrics (counters, gauges, histograms with aggregation)
+- Capability Resolver (maps capability IDs to executors with fallback chains)
+- MCP Runtime (native Model Context Protocol tool registry and execution)
+- Skill Engine (reusable business logic units with registry and batch execution)
+- Knowledge Layer (in-memory knowledge indexing, search, and retrieval)
+- Memory Layer (long-context memory with lifecycle: short_term → long_term → archived)
+- Evaluation Engine (criteria-based scoring with weighted aggregation)
+- Reflection Engine (insight generation from evaluation results)
+- Execution Engine Improvements (orchestrator with parallel execution and tracing)
+- Scheduler (priority queue with delayed execution and cancellation)
+- Workflow Engine (DAG orchestration with checkpoints, evaluation, and reflection)
+- Integration Tests (end-to-end pipeline verification)
+- Documentation updated
+
 ## Running Tests
 
 ```bash
@@ -51,9 +67,9 @@ docs/                           Project documentation
 cd backend/agent-reach-core
 pytest tests/
 
-# Kernel + Runtime tests
-cd "backend/agent reach core/agent_reach"
-pytest tests/
+# Kernel + Runtime + M4 tests
+cd "backend/agent reach core"
+pytest agent_reach/tests/ --ignore=agent_reach/tests/test_composition.py
 ```
 
 ## Architecture Principles

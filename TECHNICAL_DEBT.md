@@ -46,6 +46,27 @@
 - **PlanStep.condition is a simple string**: Conditional branching uses string
   expressions rather than a structured condition language or safe eval.
 
+### Milestone 4 (Complete)
+- **Observability is in-memory only**: Traces and spans are lost on process
+  restart. A future milestone could add persistence or export to external systems.
+- **Metrics are in-memory only**: No time-series storage or external push.
+- **CapabilityResolver has no distributed resolution**: All capabilities must be
+  registered in-process. A future milestone could add remote capability discovery.
+- **MCP Runtime is in-process only**: No network transport or stdio server.
+  Full MCP protocol transport belongs to a future milestone.
+- **KnowledgeLayer uses simple substring search**: No vector embeddings or
+  semantic search. Full-text indexing could be added if needed.
+- **MemoryLayer uses heuristic scoring**: The relevance score formula
+  (importance × 0.6 + recency × 0.4) is arbitrary. A future milestone could
+  learn optimal weights from user feedback.
+- **EvaluationEngine evaluators are user-provided**: No built-in LLM-as-judge
+  or embedding-based similarity metrics yet.
+- **ReflectionEngine strategies are rule-based**: No LLM-driven reflection yet.
+- **WorkflowEngine checkpoints are in-memory**: No disk persistence for
+  checkpoints. Long-running workflows cannot survive restarts.
+- **Scheduler is single-process**: No distributed task queue (e.g., Celery,
+  RQ). Acceptable for single-node deployments.
+
 ## Known Limitations
 
 - `InMemoryRegistry` and `InMemoryContractRegistry` have no persistence.
@@ -58,8 +79,11 @@
   resolution is not supported.
 - `AgentRuntime` does not enforce global concurrency limits.
 - `RuntimeMonitor` does not expose metrics via HTTP or push to external systems.
+- All M4 subsystems are in-memory only and do not persist across restarts.
+- The Workflow Engine does not yet support dynamic step insertion or
+  self-modifying workflows.
 
-## Risks Before Milestone 4
+## Risks After Milestone 4
 
 1. **Path configuration**: If `PYTHONPATH` is misconfigured in production, the
    kernel will fail to import the plugin system and fall back to native agents
@@ -69,6 +93,9 @@
    implemented.
 3. **No authentication on plugin management APIs**: If plugin management is
    exposed via HTTP, there is no access control yet.
-4. **Memory growth**: `AgentRuntime` and `AgentMessenger` accumulate sessions
-   and messages in memory indefinitely. Long-running processes may need periodic
-   cleanup or session TTLs.
+4. **Memory growth**: `AgentRuntime`, `AgentMessenger`, `MemoryLayer`, and
+   `KnowledgeLayer` accumulate data in memory indefinitely. Long-running
+   processes may need periodic cleanup, session TTLs, or memory pruning.
+5. **In-process scaling ceiling**: The Scheduler, Workflow Engine, and
+   Observability layer are all single-process. Horizontal scaling would require
+   significant redesign.
