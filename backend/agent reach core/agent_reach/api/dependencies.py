@@ -46,3 +46,7 @@ def get_workflow_engine(request: Request):
 def get_workflow_registry(request: Request):
     """Return the WorkflowRegistry built in the composition root."""
     return getattr(request.app.state, "workflow_registry", None)
+
+def get_pipeline(request: Request):
+    """Return the IntelligentPipeline built in the composition root (M7.5)."""
+    return getattr(request.app.state, "pipeline", None)
