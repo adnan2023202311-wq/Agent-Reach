@@ -41,6 +41,7 @@ from api.routers import agents, chat, conversations, dashboard, health, provider
 from composition import (
     build_default_controller,
     build_conversation_engine,
+    build_intelligent_pipeline,
     build_workflow_engine,
     build_workflow_registry,
 )
@@ -54,8 +55,10 @@ def create_app() -> FastAPI:
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+        # Build the core controller (backward compatible)
         app.state.controller = build_default_controller(settings)
-        app.state.session_manager = app.state.controller._dispatcher and None
+        # Build the M7.5 intelligent pipeline (recommended entry point)
+        app.state.pipeline = build_intelligent_pipeline(settings)
         # Build M6 components.
         app.state.conversation_engine = build_conversation_engine(settings)
         app.state.session_manager = app.state.conversation_engine._session_manager

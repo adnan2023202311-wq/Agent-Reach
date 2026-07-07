@@ -17,6 +17,7 @@ from conversation.engine import ConversationEngine
 from conversation.session_manager import SessionManager
 from core.controller import MainController
 from core.dispatcher import AgentDispatcher
+from core.intelligent_pipeline import IntelligentPipeline, PipelineConfig
 from core.planner import RuleBasedPlanner
 from domain.interfaces import Agent, ModelClient
 from domain.models import AgentType
@@ -122,6 +123,25 @@ def build_workflow_engine(
 def build_workflow_registry() -> WorkflowRegistry:
     """Build an empty WorkflowRegistry."""
     return WorkflowRegistry()
+
+
+
+def build_intelligent_pipeline(
+    settings: Optional[Settings] = None,
+    config: Optional[PipelineConfig] = None,
+) -> IntelligentPipeline:
+    """Build the fully integrated M7.5 Intelligent Pipeline.
+
+    This is the recommended entry point for all user requests.
+    It wraps MainController and layers every M7 subsystem around it:
+    Router → Memory → Context → MOA → Planner → Agents → Reflection
+    → Knowledge Graph → Learning → Tutti.
+
+    Falls back gracefully to bare MainController behavior when
+    subsystems are disabled in PipelineConfig.
+    """
+    controller = build_default_controller(settings)
+    return IntelligentPipeline(controller=controller, config=config)
 
 
 def _try_load_plugins() -> Optional[Any]:
