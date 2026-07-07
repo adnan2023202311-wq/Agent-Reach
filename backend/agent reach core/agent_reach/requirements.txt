@@ -6,6 +6,8 @@ python-dotenv>=1.0
 httpx>=0.27
 anthropic>=0.34
 openai>=1.35
+python-jose[cryptography]>=3.3
+bcrypt>=4.0
 
 # Add as you implement the corresponding agents/tools:
 # playwright        -> Browser Agent
