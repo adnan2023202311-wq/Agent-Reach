@@ -81,7 +81,23 @@ async def _validation_error_handler(request: Request, exc: RequestValidationErro
     )
 
 
+async def _unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    """Catch-all handler for any exception not handled by more specific handlers.
+
+    Logs the full traceback so the error is visible during development,
+    then returns a generic 500 response. Without this handler, unhandled
+    exceptions would produce a 500 with no logging, making debugging
+    difficult.
+    """
+    logger.exception("Unhandled error handling %s: %s", request.url.path, exc)
+    return JSONResponse(
+        status_code=500,
+        content=_envelope("Internal server error", "INTERNAL_ERROR"),
+    )
+
+
 def register_exception_handlers(app: FastAPI) -> None:
     app.add_exception_handler(AgentReachError, _agent_reach_error_handler)
     app.add_exception_handler(HTTPException, _http_exception_handler)
     app.add_exception_handler(RequestValidationError, _validation_error_handler)
+    app.add_exception_handler(Exception, _unhandled_exception_handler)
