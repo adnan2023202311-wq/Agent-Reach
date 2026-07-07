@@ -59,6 +59,27 @@ try:
     from api.routers import skills as skills_router
 except Exception:
     skills_router = None
+# M8 extended
+try:
+    from api.routers import marketplace as marketplace_router
+except Exception:
+    marketplace_router = None
+try:
+    from api.routers import playground as playground_router
+except Exception:
+    playground_router = None
+try:
+    from api.routers import connectors as connectors_router
+except Exception:
+    connectors_router = None
+try:
+    from api.routers import collaboration as collaboration_router
+except Exception:
+    collaboration_router = None
+try:
+    from api.routers import agent_studio as agent_studio_router
+except Exception:
+    agent_studio_router = None
 from composition import (
     build_default_controller,
     build_conversation_engine,
@@ -118,6 +139,17 @@ def create_app() -> FastAPI:
         app.include_router(observatory_router.router)
     if skills_router:
         app.include_router(skills_router.router)
+    # M8 extended
+    if marketplace_router:
+        app.include_router(marketplace_router.router)
+    if playground_router:
+        app.include_router(playground_router.router)
+    if connectors_router:
+        app.include_router(connectors_router.router)
+    if collaboration_router:
+        app.include_router(collaboration_router.router)
+    if agent_studio_router:
+        app.include_router(agent_studio_router.router)
 
     return app
 
