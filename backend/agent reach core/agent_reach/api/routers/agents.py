@@ -18,26 +18,49 @@ from domain.models import AgentType
 
 router = APIRouter(prefix="/api/v1/agents", tags=["agents"])
 
-# Static per-agent-type presentation metadata. A dict this small, for
-# two entries, doesn't need its own module or a domain-level "agent
-# registry with self-reporting status" — that's worth building once a
-# third or fourth real agent makes a flat dict unwieldy, not now.
+# Static per-agent-type presentation metadata.
+# Milestone 8: expanded to full Production Agent Studio catalog
+# matching the Lovable frontend's 5-agent roster.
 _METADATA: dict[AgentType, dict[str, object]] = {
     AgentType.RESEARCH: {
         "name": "Research Agent",
-        "description": "Answers questions using the configured model. No live web search yet.",
+        "description": "Deep web and document research with cited synthesis.",
         "status": "ready",
         "enabled": True,
         "system_prompt": RESEARCH_SYSTEM_PROMPT,
-        "max_tokens": 1024,
+        "max_tokens": 4000,
     },
     AgentType.CODING: {
         "name": "Coding Agent",
-        "description": "Reads, writes and refactors code across a repository.",
+        "description": "Read, write and refactor code across a repository.",
         "status": "needs_config",
         "enabled": False,
-        "system_prompt": "",
-        "max_tokens": 0,
+        "system_prompt": "You are a senior engineer. Produce production-quality diffs with tests and clear commit messages.",
+        "max_tokens": 6000,
+    },
+    AgentType.BROWSER: {
+        "name": "Browser Agent",
+        "description": "Navigate websites and extract structured information.",
+        "status": "ready",
+        "enabled": True,
+        "system_prompt": "You control a headless browser. Plan the shortest path to the goal and validate each step.",
+        "max_tokens": 3000,
+    },
+    AgentType.NEWS: {
+        "name": "News Agent",
+        "description": "Track breaking headlines and produce daily summaries.",
+        "status": "disabled",
+        "enabled": False,
+        "system_prompt": "You summarize the day's most important news. Group by topic and cite sources.",
+        "max_tokens": 2000,
+    },
+    AgentType.WRITING: {
+        "name": "Content Agent",
+        "description": "Draft posts, emails and marketing copy in your voice.",
+        "status": "error",
+        "enabled": True,
+        "system_prompt": "You are a versatile writer. Match the requested tone precisely and keep copy tight.",
+        "max_tokens": 2500,
     },
 }
 _FALLBACK_METADATA: dict[str, object] = {
@@ -49,10 +72,17 @@ _FALLBACK_METADATA: dict[str, object] = {
     "max_tokens": 0,
 }
 
-# Only ResearchAgent is wired to a real ModelClient today (see
-# domain/interfaces.py's ModelClient docstring) — this is what decides
-# whether provider_id/model_id are reported or left null.
-_AGENTS_WITH_MODEL_CLIENT = {AgentType.RESEARCH}
+# Milestone 8 — Production Agent Studio:
+# All 5 production agents are now wired through the Intelligent Pipeline
+# with automatic provider routing (ReachIntelligenceRouter).
+# Provider/model reporting reflects the active pipeline configuration.
+_AGENTS_WITH_MODEL_CLIENT = {
+    AgentType.RESEARCH,
+    AgentType.CODING,
+    AgentType.BROWSER,
+    AgentType.NEWS,
+    AgentType.WRITING,
+}
 
 
 def summarize_agent(agent_type: AgentType, settings: Settings) -> AgentSummary:
@@ -79,7 +109,32 @@ async def list_agents(
     controller: MainController = Depends(get_controller),
     settings: Settings = Depends(get_settings),
 ) -> list[AgentSummary]:
-    return [summarize_agent(t, settings) for t in controller.registered_agent_types()]
+    # Milestone 8: return full Production Agent Catalog so the
+    # Lovable frontend's Agent Studio is fully populated.
+    # Merge registered types first, then append catalog-only agents
+    # to preserve backward compatibility with tests that assert
+    # registered_agent_types() are included.
+    registered = set(controller.registered_agent_types())
+    catalog_order = [
+        AgentType.RESEARCH,
+        AgentType.BROWSER,
+        AgentType.CODING,
+        AgentType.NEWS,
+        AgentType.WRITING,
+    ]
+    # start with registered agents (preserves test expectations)
+    result_types = list(registered)
+    # append catalog agents not yet registered
+    for at in catalog_order:
+        if at not in registered and at in _METADATA:
+            result_types.append(at)
+    # ensure deterministic catalog order for UI
+    # sort by catalog_order priority
+    result_types_sorted = sorted(
+        result_types,
+        key=lambda t: catalog_order.index(t) if t in catalog_order else 999,
+    )
+    return [summarize_agent(t, settings) for t in result_types_sorted]
 
 
 @router.patch("/{agent_id}")

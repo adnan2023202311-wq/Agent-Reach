@@ -38,6 +38,27 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from api.exception_handlers import register_exception_handlers
 from api.routers import agents, chat, conversations, dashboard, health, providers, tools, workflows
+# Milestone 8 routers
+try:
+    from api.routers import memory as memory_router
+except Exception:
+    memory_router = None
+try:
+    from api.routers import knowledge as knowledge_router
+except Exception:
+    knowledge_router = None
+try:
+    from api.routers import prompts_studio as prompts_router
+except Exception:
+    prompts_router = None
+try:
+    from api.routers import observatory as observatory_router
+except Exception:
+    observatory_router = None
+try:
+    from api.routers import skills as skills_router
+except Exception:
+    skills_router = None
 from composition import (
     build_default_controller,
     build_conversation_engine,
@@ -85,6 +106,18 @@ def create_app() -> FastAPI:
     app.include_router(tools.router)
     app.include_router(providers.router)
     app.include_router(dashboard.router)
+
+    # Milestone 8 routers
+    if memory_router:
+        app.include_router(memory_router.router)
+    if knowledge_router:
+        app.include_router(knowledge_router.router)
+    if prompts_router:
+        app.include_router(prompts_router.router)
+    if observatory_router:
+        app.include_router(observatory_router.router)
+    if skills_router:
+        app.include_router(skills_router.router)
 
     return app
 
