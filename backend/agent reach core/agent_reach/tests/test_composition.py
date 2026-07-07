@@ -13,13 +13,13 @@ import pytest
 
 from composition import build_default_controller
 from config.settings import Settings
-from domain.exceptions import ConfigurationError
 
 
-def test_build_default_controller_requires_api_key() -> None:
+def test_build_default_controller_falls_back_to_mock_without_api_key() -> None:
+    """M6.2 Runtime Fix: controller falls back to MockModelClient when no key."""
     settings = Settings(anthropic_api_key=None, default_model_provider="anthropic")
-    with pytest.raises(ConfigurationError):
-        build_default_controller(settings)
+    controller = build_default_controller(settings)
+    assert controller is not None
 
 
 def test_build_default_controller_succeeds_with_api_key() -> None:
