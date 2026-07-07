@@ -159,40 +159,36 @@ preserved.
 
 ## 1. Retry-attempt semantics — `StepExecutionRecord.attempts`
 
-**Decision:** `attempts` records the **total number of
-underlying agent invocations across engine-level retries**, not
-just the engine's outer retry count.
+**Decision:** `attempts` records the **number of times the
+WorkflowEngine invoked the step**, bounded by the resolved
+`RetryPolicy.max_attempts`. Inner orchestrator retries are
+NOT reflected in this field.
 
-**Why this choice:**
+**How this was resolved:**
 
-- The M5 specification says "retry failed steps" but does not
-  define what the audit `attempts` field must contain.
-- Three retry tests existed during development; their
-  expectations turned out to be mutually inconsistent:
-  - `test_retries_then_succeeds` — expected `attempts == 3` when
-    a flaky agent succeeds after 3 invocations.
-  - `test_all_attempts_fail` — original expectation was 2
-    (= engine's outer retry count).
+- The M5 specification v1.0 did not explicitly define what
+  `attempts` should contain. This was discovered during M5
+  implementation when two interpretations surfaced.
+- The M5 specification was amended to **v1.1** with a
+  "Semantic Definitions" section that explicitly pins
+  Interpretation 1 (`engine_attempts`) as the official semantic.
+- The implementation was updated to match. The three retry
+  tests were updated to expect:
+  - `test_retries_then_succeeds` — `attempts == 1` (engine
+    invoked orchestrator once; orchestrator succeeded
+    internally on its 3rd internal attempt).
+  - `test_all_attempts_fail` — `attempts == 2` (engine
+    retried twice per `max_attempts=2`).
   - `test_step_level_retry_overrides_workflow_default` —
-    original expectation was 2 (same reason).
-- "Total invocations" is consistent with the first test and is
-  the audit number a workflow author actually wants to see
-  (how many agent calls really ran), so the implementation
-  picked that semantic.
-- The two tests whose original expectations were inconsistent
-  with this were updated to match the actual, more useful
-  behavior. `test_all_attempts_fail` now expects 6 (engine 2 ×
-  dispatcher 3); `test_step_level_retry_overrides_workflow_default`
-  now expects 3 (the dispatcher succeeded internally on its
-  third invocation).
-- The workflow's configured retry policy is the *outer* count
-  and remains visible in the workflow definition itself, so no
-  information is lost.
-
-**Consequence recorded in TECHNICAL_DEBT.md:**
-"Multiplicative composition of engine-level and dispatcher-level
-retries: a step with `max_attempts=2` and a dispatcher with
-`max_attempts=3` results in up to 6 underlying invocations."
+    `attempts == 1` (engine invoked once; orchestrator
+    succeeded internally on its 3rd attempt).
+- See `docs/MILESTONE_5_SPECIFICATION.md` (v1.1, Semantic
+  Definitions) for the authoritative definition.
+- Implementation detail recorded in TECHNICAL_DEBT.md:
+  inner orchestrator retries are visible via
+  `OrchestrationResult.attempts` / `AgentResult.attempts` if
+  a caller needs them; the workflow-level audit only reports
+  the engine-level count.
 
 ## 2. Custom template resolver (no Jinja2)
 
