@@ -26,6 +26,9 @@ Modules in this package:
 - ``persistence``: JSON save/load for workflows and results
 - ``validation``:  WorkflowValidator — static structural validation
 - ``monitoring``:  WorkflowMonitor — runtime statistics
+- ``conditions``:  Condition evaluator (==, !=, >, <, truthy, ...)
+- ``template``:    Template resolver for inputs and outputs
+- ``orchestration``: Agent and tool orchestration adapters
 """
 
 from workflows.models import (
