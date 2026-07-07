@@ -129,6 +129,90 @@ export interface DashboardService {
 }
 
 // ---------------------------------------------------------------------------
+// Milestone 8 — Extended Workspace Services
+// ---------------------------------------------------------------------------
+
+export interface MemoryItem { id: string; content: string; importance: number; }
+export interface MemoryService {
+  stats(): Promise<any>;
+  search(query: string, count?: number): Promise<MemoryItem[]>;
+  store(content: string, importance?: number): Promise<{id:string}>;
+  working(): Promise<MemoryItem[]>;
+  compress(): Promise<any>;
+  clear(): Promise<void>;
+}
+
+export interface KnowledgeNode { id: string; label: string; type: string; }
+export interface KnowledgeEdge { source: string; target: string; type: string; }
+export interface KnowledgeService {
+  stats(): Promise<any>;
+  search(query: string): Promise<any[]>;
+  graph(limit?: number): Promise<{nodes: KnowledgeNode[]; edges: KnowledgeEdge[]}>;
+  upload(file: File, collection?: string): Promise<any>;
+  clear(): Promise<void>;
+}
+
+export interface PromptRecord { name: string; version: number; template: string; variables?: string[]; }
+export interface PromptsService {
+  list(search?: string): Promise<PromptRecord[]>;
+  get(name: string, version?: number): Promise<PromptRecord>;
+  create(input: {name:string; template:string; variables?:string[]}): Promise<any>;
+  test(template: string, variables: Record<string,any>): Promise<{rendered:string}>;
+  history(name: string): Promise<any[]>;
+  optimize(name: string): Promise<any>;
+}
+
+export interface WorkflowSummary { id: string; name: string; description?: string; status?: string; }
+export interface WorkflowsService {
+  list(): Promise<WorkflowSummary[]>;
+  get(id: string): Promise<any>;
+  run(id: string, input?: any): Promise<any>;
+  validate(graph: any): Promise<any>;
+}
+
+export interface ObservatoryService {
+  live(): Promise<any>;
+  metrics(): Promise<any>;
+  trace(requestId: string): Promise<any>;
+}
+
+export interface SkillsService {
+  list(category?: string): Promise<any[]>;
+  get(id: string): Promise<any>;
+  execute(id: string, input: any): Promise<any>;
+}
+
+export interface MarketplaceService {
+  list(): Promise<any[]>;
+  install(pluginId: string, version?: string): Promise<any>;
+  uninstall(pluginId: string): Promise<any>;
+}
+
+export interface PlaygroundService {
+  models(): Promise<any>;
+  compare(prompt: string, providers: string[]): Promise<any>;
+}
+
+export interface ConnectorsService {
+  list(): Promise<any[]>;
+  get(id: string): Promise<any>;
+  test(id: string): Promise<any>;
+}
+
+export interface CollaborationService {
+  organizations(): Promise<any[]>;
+  teams(): Promise<any[]>;
+  audit(limit?: number): Promise<any[]>;
+}
+
+export interface AgentStudioService {
+  list(): Promise<any>;
+  draft(input: any): Promise<any>;
+  test(agentId: string, prompt: string): Promise<any>;
+  publish(agentId: string): Promise<any>;
+}
+
+// ---------------------------------------------------------------------------
 // Root services registry
 // ---------------------------------------------------------------------------
 
@@ -138,4 +222,16 @@ export interface Services {
   tools: ToolsService;
   chat: ChatService;
   dashboard: DashboardService;
+  // M8
+  memory?: MemoryService;
+  knowledge?: KnowledgeService;
+  prompts?: PromptsService;
+  workflows?: WorkflowsService;
+  observatory?: ObservatoryService;
+  skills?: SkillsService;
+  marketplace?: MarketplaceService;
+  playground?: PlaygroundService;
+  connectors?: ConnectorsService;
+  collaboration?: CollaborationService;
+  agentStudio?: AgentStudioService;
 }
