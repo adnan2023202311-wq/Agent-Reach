@@ -1,6 +1,6 @@
 # Agent-Reach
 # Milestone 5 Specification
-Version: 1.0
+Version: 1.1
 
 ---
 
@@ -11,6 +11,45 @@ Milestone 5 introduces the Workflow & Orchestration Layer.
 Milestone 5 transforms Agent-Reach from a collection of executable agents into a workflow-driven AI operating system.
 
 No redesign of previous milestones is allowed.
+
+---
+
+# Semantic Definitions (M5 Amendment 1.1)
+
+These definitions were added during M5 implementation to
+disambiguate semantics that the original v1.0 spec left open.
+Future M5 work MUST follow these definitions; the implementation
+must not reinterpret them locally.
+
+## StepExecutionRecord.attempts
+
+`StepExecutionRecord.attempts` records **the number of times
+the WorkflowEngine invoked the step**, bounded by the resolved
+`RetryPolicy.max_attempts`.
+
+- A step that succeeds on the first engine-level call records
+  `attempts=1`.
+- A step configured with `max_attempts=2` records `attempts=2`
+  whether it ultimately succeeds or fails.
+- Inner orchestrator retries (e.g., AgentDispatcher\'s own
+  per-call retry policy) are an implementation detail of that
+  orchestrator and are NOT reflected in this field.
+- Inner orchestrator retry counts are visible via the
+  underlying `AgentResult.attempts` / `OrchestrationResult.attempts`
+  if a caller needs them; the workflow-level audit only reports
+  the engine-level count.
+
+Rationale: this matches what the workflow author configured via
+`RetryPolicy.max_attempts` ("retry up to N times → attempts=N")
+and avoids multiplicative composition with inner orchestrator
+retry policies.
+
+## WorkflowContext.history
+
+`WorkflowContext.history` is the ordered list of
+`StepExecutionRecord`s for the current workflow run, one per
+step execution attempt sequence (NOT per individual underlying
+invocation). The list is append-only.
 
 ---
 

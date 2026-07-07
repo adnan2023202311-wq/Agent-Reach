@@ -90,13 +90,23 @@
 - **Conditions use structured operators only**: A Condition is a
   (variable, op, value) triple. No `and`/`or` composition; nested
   expressions belong to a future milestone.
-- **`StepExecutionRecord.attempts` semantics**: The recorded
-  attempts field reflects the total number of underlying agent
-  invocations across engine-level retries, not just the engine
-  retry count. This matches what an audit log needs (how many
-  agent calls actually ran), but the workflow\'s configured
-  retry policy is the *outer* count and is visible in the
-  workflow definition itself.
+- **`StepExecutionRecord.attempts` is the engine-level retry
+  count, not the total underlying invocations**: Per the M5
+  spec v1.1 amendment (Semantic Definitions —
+  StepExecutionRecord.attempts), the field records the number
+  of times the WorkflowEngine invoked the step. Inner
+  orchestrator retries (e.g., AgentDispatcher\'s per-call retry
+  policy) are an implementation detail of that orchestrator and
+  are not reflected in the workflow-level audit. Callers that
+  need the inner-retry count can use the underlying
+  `OrchestrationResult.attempts` / `AgentResult.attempts`
+  directly. The composition is therefore: a step with
+  `max_attempts=2` (engine) and a dispatcher with
+  `max_attempts=3` produces up to 2 (not 6) recorded attempts.
+  The multiplicative behavior is documented here so a future
+  maintainer does not interpret the small audit count as "the
+  retry policy was ineffective" when in fact the inner
+  orchestrator did the retries internally.
 - **WorkflowValidator inspects `ToolManager._tools` directly**:
   the registry-aware tool check reaches into the private
   `_tools` dict of ToolManager because ToolManager has no public

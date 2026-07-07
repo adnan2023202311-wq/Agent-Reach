@@ -288,18 +288,24 @@ class WorkflowEngine:
 
         # Execute with retries.
         #
-        # The engine retries at the workflow level — i.e. it re-invokes
-        # the step's orchestrator up to ``policy.max_attempts`` times.
-        # The orchestrator itself may retry internally (AgentDispatcher
-        # already has a per-call retry policy); we accumulate the
-        # orchestrator's reported attempts across engine-level retries
-        # so the audit trail reflects the real total number of agent
-        # invocations, not just the number of times the engine called
-        # into the orchestrator.
+        # Per docs/MILESTONE_5_SPECIFICATION.md (v1.1, Semantic
+        # Definitions — StepExecutionRecord.attempts):
+        #
+        #     attempts records the number of times the
+        #     WorkflowEngine invoked the step, bounded by the
+        #     resolved RetryPolicy.max_attempts. Inner
+        #     orchestrator retries are an implementation detail
+        #     of that orchestrator and are NOT reflected in
+        #     this field.
+        #
+        # So we count engine-level invocations only. The
+        # underlying OrchestrationResult.attempts is preserved
+        # for callers that want the inner-retry count via the
+        # engine\'s internal accessors, but the audit record
+        # only reports the outer (workflow-level) count.
         policy = self._resolve_retry_policy(workflow, step)
         last: OrchestrationResult
         engine_attempts = 0
-        total_attempts = 0
         for attempt in range(1, policy.max_attempts + 1):
             engine_attempts = attempt
             try:
@@ -310,10 +316,6 @@ class WorkflowEngine:
                     error=f"orchestrator raised: {exc}",
                     attempts=1,
                 )
-
-            # Accumulate the orchestrator's reported attempts so the
-            # recorded total reflects every underlying invocation.
-            total_attempts += max(outcome.attempts, 1)
 
             if outcome.success:
                 last = outcome
@@ -336,9 +338,10 @@ class WorkflowEngine:
             finished_at=finished_at,
             duration_ms=(finished_at - started_at) * 1000.0,
             success=last.success,
-            # ``total_attempts`` reflects the real number of underlying
-            # invocations across engine retries.
-            attempts=total_attempts,
+            # Per the M5 spec amendment: this is the number of
+            # times the WorkflowEngine invoked the step, NOT the
+            # total underlying invocations.
+            attempts=engine_attempts,
             output=last.output if last.success else None,
             error=last.error,
         )

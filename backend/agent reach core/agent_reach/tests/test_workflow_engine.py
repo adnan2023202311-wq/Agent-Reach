@@ -354,6 +354,12 @@ class TestWorkflowEngineRetry:
     def test_retries_then_succeeds(
         self, flaky_dispatcher: AgentDispatcher, tool_orchestrator: ToolOrchestrator
     ) -> None:
+        # Per docs/MILESTONE_5_SPECIFICATION.md v1.1
+        # (Semantic Definitions — StepExecutionRecord.attempts):
+        # attempts is the engine-level count, NOT the total
+        # underlying invocations. The flaky agent succeeds on
+        # the dispatcher\'s 3rd internal retry; the engine
+        # only invokes the orchestrator ONCE, so attempts == 1.
         engine = WorkflowEngine(
             agent_orchestrator=AgentOrchestrator(dispatcher=flaky_dispatcher),
             tool_orchestrator=tool_orchestrator,
@@ -374,7 +380,7 @@ class TestWorkflowEngineRetry:
         )
         result = asyncio.run(engine.run(wf))
         assert result.state == WorkflowState.COMPLETED
-        assert result.history[0].attempts == 3
+        assert result.history[0].attempts == 1
 
     def test_all_attempts_fail(self, failing_dispatcher: AgentDispatcher) -> None:
         engine = WorkflowEngine(
@@ -395,7 +401,7 @@ class TestWorkflowEngineRetry:
         result = asyncio.run(engine.run(wf))
         assert result.state == WorkflowState.FAILED
         assert "doomed" in (result.error or "")
-        assert result.history[0].attempts == 6
+        assert result.history[0].attempts == 2
 
     def test_step_level_retry_overrides_workflow_default(
         self, flaky_dispatcher: AgentDispatcher
@@ -425,7 +431,7 @@ class TestWorkflowEngineRetry:
             ],
         )
         result = asyncio.run(engine.run(wf))
-        assert result.history[0].attempts == 3
+        assert result.history[0].attempts == 1
 
 
 class TestWorkflowEngineDependency:
