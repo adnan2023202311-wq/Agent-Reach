@@ -94,7 +94,7 @@ class TestMessages:
             "/api/v1/conversations/sessions/ghost/messages",
             json={"session_id": "ghost", "message": "hi"},
         )
-        assert resp.status_code == 400
+        assert resp.status_code == 404
 
     def test_get_history(self, client: TestClient) -> None:
         create_resp = client.post("/api/v1/conversations/sessions", json={})

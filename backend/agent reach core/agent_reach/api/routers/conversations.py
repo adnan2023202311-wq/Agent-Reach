@@ -150,6 +150,9 @@ async def send_message(
             extra_context=request.context,
         )
     except ValueError as exc:
+        msg = str(exc).lower()
+        if "does not exist" in msg:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     return SendMessageResponse(
