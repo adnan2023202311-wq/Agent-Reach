@@ -12,12 +12,17 @@ from agents.coding_agent import CodingAgent
 from agents.plugin_agent import PluginAgent, build_plugin_manager
 from agents.research_agent import ResearchAgent
 from config.settings import Settings, get_settings
+from conversation.engine import ConversationEngine
+from conversation.session_manager import SessionManager
 from core.controller import MainController
 from core.dispatcher import AgentDispatcher
 from core.planner import RuleBasedPlanner
 from domain.interfaces import Agent, ModelClient
 from domain.models import AgentType
 from infrastructure.model_client import AnthropicModelClient
+from workflows.engine import WorkflowEngine
+from workflows.orchestration import AgentOrchestrator, ToolOrchestrator
+from workflows.registry import WorkflowRegistry
 
 
 def build_default_agent_registry(
@@ -69,6 +74,36 @@ def build_anthropic_model_client(settings: Optional[Settings] = None) -> ModelCl
         api_key=settings.provider_api_key(settings.default_model_provider),
         model=settings.default_model,
     )
+
+
+def build_conversation_engine(
+    settings: Optional[Settings] = None,
+) -> ConversationEngine:
+    """Build a ConversationEngine with its SessionManager and controller."""
+    controller = build_default_controller(settings)
+    session_manager = SessionManager()
+    return ConversationEngine(
+        controller=controller,
+        session_manager=session_manager,
+    )
+
+
+def build_workflow_engine(
+    settings: Optional[Settings] = None,
+) -> WorkflowEngine:
+    """Build a WorkflowEngine with agent and tool orchestrators."""
+    controller = build_default_controller(settings)
+    agent_orchestrator = AgentOrchestrator(dispatcher=controller._dispatcher)
+    tool_orchestrator = ToolOrchestrator()
+    return WorkflowEngine(
+        agent_orchestrator=agent_orchestrator,
+        tool_orchestrator=tool_orchestrator,
+    )
+
+
+def build_workflow_registry() -> WorkflowRegistry:
+    """Build an empty WorkflowRegistry."""
+    return WorkflowRegistry()
 
 
 def _try_load_plugins() -> Optional[Any]:

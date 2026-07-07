@@ -7,7 +7,7 @@ This is intentionally the only module that imports FastAPI, builds the
 app, and triggers the composition root — every other module in the
 codebase can be imported and unit-tested without a running web server.
 The MainController is built inside `lifespan`, at actual server
-startup, not at import time — a router that builds a `MainController()`
+startup, not at import time — a router that builds a `MainController()``
 singleton as an import-time side effect makes it impossible to swap in
 a test double without monkeypatching.
 
@@ -20,6 +20,12 @@ process and talks to this API over HTTP (see frontend/README.md and
 frontend/.env.example for how it's configured to find this backend).
 That's why CORS is now load-bearing: Settings.allowed_origins must
 include wherever `bun run dev` actually serves the frontend from.
+
+Milestone 6 additions:
+- ConversationEngine, SessionManager, WorkflowEngine, and
+  WorkflowRegistry are built in the lifespan and stored on app.state
+  so the new routers (conversations, workflows) can access them.
+- New routers: conversations, workflows.
 """
 
 from __future__ import annotations
@@ -31,8 +37,13 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from api.exception_handlers import register_exception_handlers
-from api.routers import agents, chat, dashboard, health, providers, tools
-from composition import build_default_controller
+from api.routers import agents, chat, conversations, dashboard, health, providers, tools, workflows
+from composition import (
+    build_default_controller,
+    build_conversation_engine,
+    build_workflow_engine,
+    build_workflow_registry,
+)
 from config.logging_config import configure_logging
 from config.settings import get_settings
 
@@ -44,6 +55,12 @@ def create_app() -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.controller = build_default_controller(settings)
+        app.state.session_manager = app.state.controller._dispatcher and None
+        # Build M6 components.
+        app.state.conversation_engine = build_conversation_engine(settings)
+        app.state.session_manager = app.state.conversation_engine._session_manager
+        app.state.workflow_engine = build_workflow_engine(settings)
+        app.state.workflow_registry = build_workflow_registry()
         yield
 
     app = FastAPI(title=settings.app_name, lifespan=lifespan)
@@ -59,6 +76,8 @@ def create_app() -> FastAPI:
     register_exception_handlers(app)
     app.include_router(health.router)
     app.include_router(chat.router)
+    app.include_router(conversations.router)
+    app.include_router(workflows.router)
     app.include_router(agents.router)
     app.include_router(tools.router)
     app.include_router(providers.router)
