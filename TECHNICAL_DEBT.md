@@ -181,3 +181,67 @@
 9. **WorkflowRegistry is process-local**: there is no inter-process
    discovery or replication. A workflow registered in process A
    is invisible to process B.
+
+### Milestone 6 (Complete)
+
+- **ConversationEngine history is in-memory only**: Conversation
+  history and context are stored in-memory keyed by session_id. A
+  future milestone could persist history to SQLite or a database.
+- **SessionManager uses InMemorySessionStore by default**: Sessions
+  are not persisted across restarts. A `JsonSessionStore` or
+  SQLite-backed store could be added for persistence.
+- **ProviderManager2.0 clients are cached indefinitely**: Once a
+  provider client is created, it is never refreshed. If credentials
+  change, the process must be restarted. A future milestone could
+  add client invalidation.
+- **ProviderManager2.0 uses lazy SDK imports**: Each provider's SDK
+  is imported on first use. This means import errors only surface
+  when a provider is first activated, not at startup. A future
+  milestone could validate SDK availability at startup.
+- **ToolRegistry2.0 rebuilds the underlying ToolManager on
+  unregister**: Since `ToolManager` has no `unregister` method,
+  `ToolRegistry2.0` rebuilds the entire manager when a tool is
+  removed. This is O(n) in the number of tools. Acceptable for
+  small registries; a future milestone could add unregister to
+  ToolManager.
+- **AgentRegistry2.0 dependencies are validated but not enforced**:
+  `validate_dependencies()` returns missing dependencies, but
+  registration does not block on validation failures. A future
+  milestone could make validation mandatory.
+- **PromptLibrary uses simple regex-based substitution**: The
+  `{{ variable }}` syntax does not support nested paths, defaults,
+  or escaping. A future milestone could adopt Jinja2 or a more
+  expressive template engine.
+- **VisualWorkflowAPI loses information in graph conversion**:
+  Converting a Workflow to a graph and back loses conditions,
+  retry policies, and timeouts. The graph is a structural view,
+  not a full representation.
+- **PluginMarketplace is local-only**: The marketplace manages a
+  local registry of plugin metadata. There is no external
+  marketplace integration, no download/install from URLs, and no
+  signature verification.
+- **Production API has no rate limiting**: The FastAPI endpoints
+  have no rate limiting or request throttling. A future milestone
+  could add middleware for rate limiting.
+- **Authentication uses in-memory UserStore**: Users and API keys
+  are stored in-memory and lost on restart. A future milestone
+  could add database-backed user storage.
+- **JWT secret key comes from configuration**: The JWT secret is
+  read from settings. If not configured, it should default to a
+  secure random value (currently it must be explicitly set).
+- **ConfigurationManager replaces the cached Settings instance**:
+  `apply_profile()` and `reload()` clear the lru_cache and rebuild
+  the Settings. Existing references to the old Settings object
+  become stale. Callers must re-call `get_settings()` to see
+  updates.
+- **BenchmarkSuite memory measurement is platform-dependent**:
+  `tracemalloc` is used when available, but memory stats may not
+  be available in all environments. Results should be compared
+  within the same environment only.
+- **SDK remote mode has no retry logic**: The SDK's remote mode
+  does not retry failed requests. A future milestone could add
+  exponential backoff for transient failures.
+- **SDK in-process mode creates a new controller per instance**:
+  Each `AgentReach()` instance builds its own controller and
+  conversation engine. For multiple instances, this duplicates
+  setup. A future milestone could add a shared app context.
