@@ -12,7 +12,16 @@ const ROUTE_MAP: Record<string, string> = {
   dashboard: "/",
   chat: "/chat",
   agents: "/agents",
+  "agent-studio": "/agent-studio",
   tools: "/tools",
+  workflows: "/workflows",
+  memory: "/memory",
+  knowledge: "/knowledge",
+  prompts: "/prompts",
+  playground: "/playground",
+  observatory: "/observatory",
+  marketplace: "/marketplace",
+  activity: "/observatory",
   settings: "/settings/providers",
 };
 

@@ -8,6 +8,14 @@ import {
   Settings,
   Sparkles,
   ChevronsLeft,
+  Workflow,
+  Brain,
+  Database,
+  FileText,
+  Store,
+  FlaskConical,
+  Eye,
+  Hammer,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -30,7 +38,15 @@ export const defaultSidebarItems: SidebarNavItem[] = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { id: "chat", label: "Chat", icon: MessagesSquare },
   { id: "agents", label: "Agents", icon: Bot },
+  { id: "agent-studio", label: "Agent Studio", icon: Hammer },
   { id: "tools", label: "Tools", icon: Wrench },
+  { id: "workflows", label: "Workflows", icon: Workflow },
+  { id: "memory", label: "Memory", icon: Brain },
+  { id: "knowledge", label: "Knowledge", icon: Database },
+  { id: "prompts", label: "Prompts", icon: FileText },
+  { id: "playground", label: "Playground", icon: FlaskConical },
+  { id: "observatory", label: "Observatory", icon: Eye },
+  { id: "marketplace", label: "Marketplace", icon: Store },
   { id: "activity", label: "Activity", icon: Activity },
   { id: "settings", label: "Settings", icon: Settings },
 ];
