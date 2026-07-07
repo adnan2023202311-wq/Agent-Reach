@@ -5,6 +5,7 @@ into the abstractions core/ depends on.
 
 from __future__ import annotations
 
+import logging
 import os
 from typing import Any, Optional
 
@@ -20,9 +21,12 @@ from core.planner import RuleBasedPlanner
 from domain.interfaces import Agent, ModelClient
 from domain.models import AgentType
 from infrastructure.model_client import AnthropicModelClient
+from infrastructure.mock_model_client import MockModelClient
 from workflows.engine import WorkflowEngine
 from workflows.orchestration import AgentOrchestrator, ToolOrchestrator
 from workflows.registry import WorkflowRegistry
+
+logger = logging.getLogger(__name__)
 
 
 def build_default_agent_registry(
@@ -68,10 +72,24 @@ def build_default_controller(settings: Optional[Settings] = None) -> MainControl
 
 
 def build_anthropic_model_client(settings: Optional[Settings] = None) -> ModelClient:
-    """Build the Anthropic ModelClient."""
+    """Build the Anthropic ModelClient.
+
+    If no API key is configured for the default provider, falls back to
+    MockModelClient so the platform can boot in development mode without
+    real provider credentials. This preserves the Alpha Validation
+    behavior where the platform supported booting with a mock client.
+    """
     settings = settings or get_settings()
+    api_key = settings.provider_api_key(settings.default_model_provider)
+    if not api_key:
+        logger.warning(
+            "No API key configured for provider '%s' — "
+            "falling back to MockModelClient for development",
+            settings.default_model_provider,
+        )
+        return MockModelClient(model=settings.default_model)
     return AnthropicModelClient(
-        api_key=settings.provider_api_key(settings.default_model_provider),
+        api_key=api_key,
         model=settings.default_model,
     )
 
