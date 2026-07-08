@@ -125,6 +125,29 @@ def build_workflow_registry() -> WorkflowRegistry:
     return WorkflowRegistry()
 
 
+def build_tool_runtime(
+    settings: Optional[Settings] = None,
+) -> "ToolRuntime":
+    """Build the M9.6 Live Tool Runtime.
+
+    Reuses the existing ToolRegistry (M6.4) and registers the
+    production tool implementations (infrastructure/production_tools).
+    The runtime adds execution history, retries, and metrics on top —
+    it does not replace the registry or the M3 ToolExecutor.
+    """
+    from core.tool_runtime import ToolRuntime
+    from infrastructure.production_tools import register_production_tools
+    from infrastructure.tool_registry import ToolRegistry
+
+    settings = settings or get_settings()
+    registry = ToolRegistry()
+    register_production_tools(registry)
+    return ToolRuntime(
+        registry,
+        default_timeout_seconds=settings.task_timeout_seconds,
+    )
+
+
 
 def build_intelligent_pipeline(
     settings: Optional[Settings] = None,

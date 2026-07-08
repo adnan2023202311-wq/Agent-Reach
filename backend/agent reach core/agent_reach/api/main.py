@@ -84,6 +84,7 @@ from composition import (
     build_default_controller,
     build_conversation_engine,
     build_intelligent_pipeline,
+    build_tool_runtime,
     build_workflow_engine,
     build_workflow_registry,
 )
@@ -106,6 +107,8 @@ def create_app() -> FastAPI:
         app.state.session_manager = app.state.conversation_engine._session_manager
         app.state.workflow_engine = build_workflow_engine(settings)
         app.state.workflow_registry = build_workflow_registry()
+        # M9.6: live tool runtime — real tools, execution history, metrics.
+        app.state.tool_runtime = build_tool_runtime(settings)
         yield
 
     app = FastAPI(title=settings.app_name, lifespan=lifespan)

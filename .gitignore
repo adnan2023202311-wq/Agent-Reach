@@ -54,3 +54,6 @@ Thumbs.db
 
 # Transport artifacts
 *.bundle
+
+# Tool runtime sandbox workspace (M9.6)
+**/data/tool_workspace/
