@@ -77,6 +77,7 @@ benchmark_lab_router = _try_import_router("benchmark_lab")
 improvement_router = _try_import_router("improvement")
 collaboration_engine_router = _try_import_router("collaboration_engine")
 adapters_router = _try_import_router("adapters")
+platform_router = _try_import_router("platform")
 from composition import (
     build_default_controller,
     build_conversation_engine,
@@ -183,6 +184,12 @@ def create_app() -> FastAPI:
         app.state.adapter_registry = AdapterRegistry(
             app.state.pipeline, app.state.tool_runtime
         )
+        # M9.11: platform introspection over the live app + pipeline.
+        from core.platform_introspection import PlatformIntrospection
+
+        app.state.platform_introspection = PlatformIntrospection(
+            app.state.pipeline, app.state.tool_runtime, app
+        )
         yield
 
     app = FastAPI(title=settings.app_name, lifespan=lifespan)
@@ -245,6 +252,9 @@ def create_app() -> FastAPI:
     # M9.26
     if adapters_router:
         app.include_router(adapters_router.router)
+    # M9.11
+    if platform_router:
+        app.include_router(platform_router.router)
 
     return app
 
