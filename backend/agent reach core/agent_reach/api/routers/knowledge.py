@@ -185,11 +185,14 @@ async def node_neighbors(
     node_id: str, direction: str = "both", pipeline=Depends(get_pipeline)
 ) -> dict[str, Any]:
     """Relationship exploration: a node's direct neighbors (M9.8)."""
-    if direction not in ("in", "out", "both"):
+    canonical = {"in": "incoming", "out": "outgoing", "incoming": "incoming",
+                 "outgoing": "outgoing", "both": "both"}.get(direction)
+    if canonical is None:
         raise HTTPException(
             status_code=422,
-            detail={"message": "direction must be 'in', 'out', or 'both'.", "code": "INVALID_DIRECTION"},
+            detail={"message": "direction must be 'incoming', 'outgoing', or 'both'.", "code": "INVALID_DIRECTION"},
         )
+    direction = canonical
     kg = _kg(pipeline)
     if kg.get_node(node_id) is None:
         raise HTTPException(
@@ -243,3 +246,35 @@ async def clear_knowledge(pipeline=Depends(get_pipeline)) -> dict[str, str]:
         return {"status": "cleared"}
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+@router.get("/evolution/entities")
+async def discovered_entities(
+    min_confidence: float = 0.0, limit: int = 100, pipeline=Depends(get_pipeline)
+) -> dict[str, Any]:
+    """Entities discovered by the evolution engine (M9.18)."""
+    if pipeline is None:
+        raise HTTPException(status_code=503, detail="Pipeline not available")
+    evolution = pipeline._get_knowledge_evolution()
+    if evolution is None:
+        raise HTTPException(status_code=503, detail="Knowledge evolution not available")
+    entities = evolution.get_discovered_entities(
+        min_confidence=min_confidence, limit=limit
+    )
+    return {"entities": entities, "count": len(entities), "stats": evolution.get_stats()}
+
+
+@router.get("/evolution/entities/{label_or_id}")
+async def entity_evolution(label_or_id: str, pipeline=Depends(get_pipeline)) -> dict[str, Any]:
+    """One entity's confidence/version trajectory (M9.18)."""
+    if pipeline is None:
+        raise HTTPException(status_code=503, detail="Pipeline not available")
+    evolution = pipeline._get_knowledge_evolution()
+    if evolution is None:
+        raise HTTPException(status_code=503, detail="Knowledge evolution not available")
+    try:
+        return evolution.get_evolution(label_or_id)
+    except KeyError as exc:
+        raise HTTPException(
+            status_code=404,
+            detail={"message": str(exc), "code": "ENTITY_NOT_FOUND"},
+        ) from exc

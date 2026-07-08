@@ -379,6 +379,18 @@ class IntelligentPipeline:
                 trace.kg_edges_added += 1
             trace.kg_nodes_added = 1 + len(outcome.results)
             trace.kg_active = True
+            # M9.18: evolve the graph from this execution's real text —
+            # entity discovery, reinforcement, and provenance links.
+            evolution = self._get_knowledge_evolution()
+            if evolution is not None:
+                text = " ".join(
+                    str(r.output) for r in outcome.results if r.output
+                )[:10_000]
+                observation = evolution.observe_execution(
+                    text, request_id=trace.request_id, execution_node_id=exec_id
+                )
+                trace.kg_nodes_added += len(observation.entities_discovered)
+                trace.kg_edges_added += observation.relationships_added
         except Exception as exc:
             logger.warning("Knowledge graph step failed: %s", exc)
             trace.errors.append(f"knowledge_graph: {exc}")
@@ -461,6 +473,24 @@ class IntelligentPipeline:
             from learning.engine import ReachLearningEngine
             self._learning = ReachLearningEngine()
         return self._learning
+
+    def _get_knowledge_evolution(self) -> Any:
+        """M9.18: evolution engine over the SHARED knowledge graph.
+
+        Lazy like every other subsystem accessor; returns None only
+        if construction fails (evolution then simply doesn't run —
+        the base KG step is unaffected).
+        """
+        if not hasattr(self, "_knowledge_evolution"):
+            try:
+                from knowledge.evolution import KnowledgeEvolutionEngine
+
+                self._knowledge_evolution = KnowledgeEvolutionEngine(
+                    self._get_knowledge_graph()
+                )
+            except Exception:  # noqa: BLE001 — optional enhancement
+                self._knowledge_evolution = None
+        return self._knowledge_evolution
 
     def _get_tutti(self) -> Any:
         if self._tutti is None:
