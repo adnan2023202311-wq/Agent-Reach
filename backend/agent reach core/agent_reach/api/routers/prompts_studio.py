@@ -1,39 +1,33 @@
 """
-API layer: /api/v1/prompts — Prompt Studio (M8.8)
+API layer: /api/v1/prompts — Prompt Studio (M9.20).
 
-Wraps the existing PromptLibrary with versioning, testing, evaluation.
+Layer: Interface/Presentation.
+
+M9.20 replaces the M8 version — which probed for methods the
+PromptLibrary never had (`add`, `list`, `history`), fell back to a
+module-level dict, and served a hardcoded "optimize" stub with an
+invented '+12%' score — with the real PromptEvolutionEngine
+(prompts/evolution.py) composed over the M7 PromptIntelligence and
+PromptLibrary, held on app.state.
+
+Endpoints keep the M8 shapes the frontend uses (list/create/get/test)
+and add the M9.20 evolution surface: analysis, evidence-based
+proposals, apply, version history, and rollback.
 """
 
 from __future__ import annotations
 
 from typing import Any, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
 router = APIRouter(prefix="/api/v1/prompts", tags=["prompts"])
 
 
-# in-memory prompt store fallback if PromptLibrary not injected
-# We try to import the M6 PromptLibrary
-try:
-    from prompts.library import PromptLibrary  # type: ignore
-    _PROMPT_LIB = PromptLibrary()
-except Exception:
-    try:
-        from prompt_library import PromptLibrary  # type: ignore
-        _PROMPT_LIB = PromptLibrary()
-    except Exception:
-        _PROMPT_LIB = None
-
-# simple in-memory fallback
-_FALLBACK_STORE: dict[str, list[dict[str, Any]]] = {}
-
-
 class PromptCreate(BaseModel):
-    name: str
-    template: str
-    variables: list[str] = Field(default_factory=list)
+    name: str = Field(min_length=1)
+    template: str = Field(min_length=1)
     description: str = ""
     tags: list[str] = Field(default_factory=list)
 
@@ -43,138 +37,182 @@ class PromptTestRequest(BaseModel):
     variables: dict[str, Any] = Field(default_factory=dict)
 
 
-def _lib():
-    if _PROMPT_LIB is not None:
-        return _PROMPT_LIB
-    return None
+class PromptUsageRecord(BaseModel):
+    output_quality: float = Field(ge=0.0, le=1.0)
+    latency_ms: float = Field(default=0.0, ge=0.0)
+    provider: str = ""
+    variables: dict[str, Any] = Field(default_factory=dict)
+
+
+class ExternalProposal(BaseModel):
+    proposed_template: str = Field(min_length=1)
+    rationale: str = Field(min_length=1)
+    evidence: dict[str, Any] = Field(default_factory=dict)
+
+
+class RollbackRequest(BaseModel):
+    version: int = Field(ge=1)
+
+
+def _evolution(request: Request):
+    engine = getattr(request.app.state, "prompt_evolution", None)
+    if engine is None:
+        raise HTTPException(status_code=503, detail="Prompt evolution engine not available")
+    return engine
+
+
+def _require_prompt(engine, name: str):
+    prompt = engine.library.get(name)
+    if prompt is None:
+        raise HTTPException(
+            status_code=404,
+            detail={"message": f"Prompt '{name}' not found.", "code": "PROMPT_NOT_FOUND"},
+        )
+    return prompt
 
 
 @router.get("")
-async def list_prompts(search: str = "", tag: str = "") -> dict[str, Any]:
-    lib = _lib()
-    try:
-        if lib and hasattr(lib, "list"):
-            items = lib.list()  # type: ignore
-        elif lib and hasattr(lib, "list_prompts"):
-            items = lib.list_prompts()  # type: ignore
-        else:
-            # fallback
-            items = []
-            for name, versions in _FALLBACK_STORE.items():
-                if versions:
-                    v = versions[-1]
-                    items.append({"name": name, "version": v.get("version", len(versions)), **v})
-    except Exception:
-        items = []
-    # filter
+async def list_prompts(request: Request, search: str = "", tag: str = "") -> dict[str, Any]:
+    engine = _evolution(request)
     if search:
-        items = [i for i in items if search.lower() in str(i.get("name", "")).lower() or search.lower() in str(i.get("template", "")).lower()]
-    if tag:
-        items = [i for i in items if tag in i.get("tags", [])]
-    return {"items": items, "count": len(items)}
+        prompts = engine.library.search(search)
+    elif tag:
+        prompts = engine.library.list_prompts(tag=tag)
+    else:
+        prompts = engine.library.list_prompts()
+    return {"items": [p.to_dict() for p in prompts], "count": len(prompts)}
 
 
 @router.post("")
-async def create_prompt(p: PromptCreate) -> dict[str, Any]:
-    lib = _lib()
-    try:
-        if lib and hasattr(lib, "add"):
-            # PromptLibrary from M6
-            result = lib.add(name=p.name, template=p.template, variables=p.variables, description=p.description)  # type: ignore
-            version = getattr(result, "version", 1)
-        elif lib and hasattr(lib, "create"):
-            result = lib.create(p.name, p.template)  # type: ignore
-            version = 1
-        else:
-            # fallback store
-            versions = _FALLBACK_STORE.setdefault(p.name, [])
-            version = len(versions) + 1
-            versions.append({
-                "name": p.name,
-                "template": p.template,
-                "variables": p.variables,
-                "description": p.description,
-                "tags": p.tags,
-                "version": version,
-            })
-        return {"name": p.name, "version": version, "status": "created"}
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
-
-
-@router.get("/{name}")
-async def get_prompt(name: str, version: Optional[int] = None) -> dict[str, Any]:
-    lib = _lib()
-    try:
-        if lib and hasattr(lib, "get"):
-            prompt = lib.get(name, version=version)  # type: ignore
-            if prompt:
-                return {
-                    "name": name,
-                    "template": getattr(prompt, "template", str(prompt)),
-                    "version": getattr(prompt, "version", version or 1),
-                }
-        # fallback
-        versions = _FALLBACK_STORE.get(name, [])
-        if not versions:
-            raise HTTPException(status_code=404, detail="Prompt not found")
-        if version:
-            v = next((x for x in versions if x.get("version") == version), None)
-            if not v:
-                raise HTTPException(status_code=404, detail="Version not found")
-        else:
-            v = versions[-1]
-        return v
-    except HTTPException:
-        raise
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+async def create_prompt(p: PromptCreate, request: Request) -> dict[str, Any]:
+    engine = _evolution(request)
+    prompt = engine.library.register(
+        p.name, p.template, description=p.description, tags=p.tags
+    )
+    return {"name": prompt.name, "version": prompt.version, "status": "created"}
 
 
 @router.post("/test")
-async def test_prompt(req: PromptTestRequest) -> dict[str, Any]:
-    """Render a prompt with variables, no LLM call – fast preview."""
+async def test_prompt(req: PromptTestRequest, request: Request) -> dict[str, Any]:
+    """Render a template with variables — fast preview, no LLM call.
+
+    Uses the library's real renderer on a transient template.
+    """
+    engine = _evolution(request)
+    # Render through the library's engine on a scratch registration,
+    # then remove it — same renderer, no divergent logic.
+    scratch = "__scratch_preview__"
+    engine.library.register(scratch, req.template)
     try:
-        rendered = req.template
-        for k, v in req.variables.items():
-            rendered = rendered.replace("{{ " + k + " }}", str(v))
-            rendered = rendered.replace("{{" + k + "}}", str(v))
-        # simple token estimate
-        tokens = len(rendered) // 4
-        return {
-            "rendered": rendered,
-            "tokens_estimate": tokens,
-            "variables_used": list(req.variables.keys()),
-            "length": len(rendered),
-        }
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        rendered = engine.library.render(scratch, req.variables)
+    finally:
+        engine.library.unregister(scratch)
+    return {
+        "rendered": rendered,
+        "tokens_estimate": len(rendered) // 4,
+        "variables_used": list(req.variables.keys()),
+        "length": len(rendered),
+    }
 
 
-@router.get("/{name}/history")
-async def prompt_history(name: str) -> dict[str, Any]:
-    versions = _FALLBACK_STORE.get(name, [])
-    # if lib supports history, use it
-    lib = _lib()
-    if lib and hasattr(lib, "history"):
-        try:
-            versions = lib.history(name)  # type: ignore
-        except Exception:
-            pass
-    return {"name": name, "versions": versions, "count": len(versions)}
+@router.get("/{name}")
+async def get_prompt(name: str, request: Request) -> dict[str, Any]:
+    engine = _evolution(request)
+    prompt = _require_prompt(engine, name)
+    return prompt.to_dict()
+
+
+@router.post("/{name}/usage")
+async def record_usage(name: str, body: PromptUsageRecord, request: Request) -> dict[str, Any]:
+    """Record real usage feedback — the evidence evolution runs on."""
+    engine = _evolution(request)
+    _require_prompt(engine, name)
+    engine.intelligence.record_usage(
+        name,
+        variables=body.variables,
+        output_quality=body.output_quality,
+        latency_ms=body.latency_ms,
+        provider=body.provider,
+    )
+    return {"name": name, "status": "recorded",
+            "learning": engine.intelligence.get_learning_stats(name)}
+
+
+@router.get("/{name}/analysis")
+async def analyze_prompt(name: str, request: Request) -> dict[str, Any]:
+    """Real usage + structural analysis (M9.20)."""
+    engine = _evolution(request)
+    _require_prompt(engine, name)
+    return engine.analyze(name)
 
 
 @router.post("/{name}/optimize")
-async def optimize_prompt(name: str) -> dict[str, Any]:
-    """Prompt optimization stub – M8 Prompt Intelligence integration point."""
-    # In production this would call Prompt Intelligence engine
+async def optimize_prompt(name: str, request: Request) -> dict[str, Any]:
+    """Generate evidence-based evolution proposals (M9.20).
+
+    Replaces the M8 stub that returned hardcoded suggestions and an
+    invented '+12%' improvement. No usage data → honest emptiness.
+    """
+    engine = _evolution(request)
+    _require_prompt(engine, name)
+    proposals = engine.propose(name)
     return {
         "name": name,
-        "optimized": True,
-        "suggestions": [
-            "Add explicit output format",
-            "Reduce ambiguity in variables",
-            "Add 1-shot example",
-        ],
-        "score_improvement": "+12%",
+        "proposals": [p.to_dict() for p in proposals],
+        "count": len(proposals),
+        "structural_suggestions": engine.intelligence.suggest_optimizations(name),
     }
+
+
+@router.post("/{name}/proposals")
+async def register_external_proposal(
+    name: str, body: ExternalProposal, request: Request
+) -> dict[str, Any]:
+    """Register an externally generated improvement proposal."""
+    engine = _evolution(request)
+    _require_prompt(engine, name)
+    proposal = engine.propose_external(
+        name, body.proposed_template, rationale=body.rationale, evidence=body.evidence
+    )
+    return proposal.to_dict()
+
+
+@router.post("/proposals/{proposal_id}/apply")
+async def apply_proposal(proposal_id: str, request: Request) -> dict[str, Any]:
+    """Apply a proposal — snapshots the prior version for rollback."""
+    engine = _evolution(request)
+    try:
+        return engine.apply_proposal(proposal_id)
+    except KeyError as exc:
+        raise HTTPException(
+            status_code=404,
+            detail={"message": str(exc), "code": "PROPOSAL_NOT_FOUND"},
+        ) from exc
+
+
+@router.get("/{name}/history")
+async def prompt_history(name: str, request: Request) -> dict[str, Any]:
+    """Recorded version snapshots, oldest first (M9.20)."""
+    engine = _evolution(request)
+    prompt = _require_prompt(engine, name)
+    snapshots = engine.get_history(name)
+    return {
+        "name": name,
+        "current_version": prompt.version,
+        "versions": [s.to_dict() for s in snapshots],
+        "count": len(snapshots),
+    }
+
+
+@router.post("/{name}/rollback")
+async def rollback_prompt(name: str, body: RollbackRequest, request: Request) -> dict[str, Any]:
+    """Restore a recorded version as a NEW version (M9.20)."""
+    engine = _evolution(request)
+    _require_prompt(engine, name)
+    try:
+        return engine.rollback(name, body.version)
+    except KeyError as exc:
+        raise HTTPException(
+            status_code=404,
+            detail={"message": str(exc), "code": "VERSION_NOT_FOUND"},
+        ) from exc

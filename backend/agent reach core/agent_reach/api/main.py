@@ -133,6 +133,10 @@ def create_app() -> FastAPI:
         from core.self_optimization import SelfOptimizationEngine
 
         app.state.optimization_engine = SelfOptimizationEngine(app.state.pipeline)
+        # M9.20: prompt evolution over the M7 PromptIntelligence.
+        from prompts.evolution import PromptEvolutionEngine
+
+        app.state.prompt_evolution = PromptEvolutionEngine()
         yield
 
     app = FastAPI(title=settings.app_name, lifespan=lifespan)
