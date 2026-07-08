@@ -1,43 +1,59 @@
 """
-API layer: /api/v1/playground — Model Playground (M8.10)
+API layer: /api/v1/playground — Model Playground (M9.1).
+
+Layer: Interface/Presentation.
+
+M9.1 replaces the M8 stub (fabricated outputs, invented latency/cost/
+quality) with the real PlaygroundComparator (playground/compare.py):
+configured providers are called concurrently through the existing
+ProviderManager client factories, latency is measured, unconfigured
+providers are reported honestly, and cost/tokens are labeled
+estimates derived from the router cost model.
 """
 
 from __future__ import annotations
+
 from typing import Any, List
-from fastapi import APIRouter, Depends
-from pydantic import BaseModel
-from api.dependencies import get_pipeline
+
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, Field
+
+from config.settings import Settings, get_settings
+from playground.compare import PlaygroundComparator
 
 router = APIRouter(prefix="/api/v1/playground", tags=["playground"])
 
+
 class CompareRequest(BaseModel):
-    prompt: str
-    providers: List[str]
-    max_tokens: int = 512
+    prompt: str = Field(min_length=1)
+    providers: List[str] = Field(min_length=1)
+    max_tokens: int = Field(default=512, ge=1, le=8192)
+    system: str = ""
+
 
 @router.post("/compare")
-async def compare_models(req: CompareRequest, pipeline=Depends(get_pipeline)) -> dict[str, Any]:
-    results = []
-    for i, prov in enumerate(req.providers):
-        # mock latency/cost for UI – real MOA would run parallel
-        results.append({
-            "provider": prov,
-            "output": f"[{prov}] {req.prompt[:80]}... (M8 playground stub)",
-            "tokens": len(req.prompt)//4,
-            "latency_ms": 400 + i*120,
-            "cost_usd": round(0.0015 * (i+1), 6),
-            "quality_score": round(0.85 - i*0.05, 2),
-        })
-    return {"prompt": req.prompt, "results": results, "winner": results[0]["provider"] if results else None}
+async def compare_models(
+    req: CompareRequest, settings: Settings = Depends(get_settings)
+) -> dict[str, Any]:
+    """Run one prompt against several providers — real calls only."""
+    comparator = PlaygroundComparator(settings)
+    try:
+        return await comparator.compare(
+            req.prompt,
+            req.providers,
+            max_tokens=req.max_tokens,
+            system=req.system,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail={"message": str(exc), "code": "INVALID_COMPARE_REQUEST"},
+        ) from exc
+
 
 @router.get("/models")
-async def playground_models() -> dict[str, Any]:
-    return {
-        "providers": [
-            {"id": "anthropic", "models": ["claude-opus-4", "claude-sonnet-4", "claude-haiku-4"]},
-            {"id": "openai", "models": ["gpt-5", "gpt-4o", "o4-mini"]},
-            {"id": "google", "models": ["gemini-2.5-pro", "gemini-2.5-flash"]},
-            {"id": "openrouter", "models": ["auto"]},
-            {"id": "ollama", "models": ["llama3", "mistral", "qwen2"]},
-        ]
-    }
+async def playground_models(
+    settings: Settings = Depends(get_settings),
+) -> dict[str, Any]:
+    """Real provider/model availability from configuration."""
+    return PlaygroundComparator(settings).list_models()
