@@ -81,6 +81,7 @@ platform_router = _try_import_router("platform")
 qa_router = _try_import_router("qa")
 code_review_router = _try_import_router("code_review")
 organization_router = _try_import_router("organization")
+innovation_router = _try_import_router("innovation")
 from composition import (
     build_default_controller,
     build_conversation_engine,
@@ -213,6 +214,15 @@ def create_app() -> FastAPI:
         app.state.engineering_organization = EngineeringOrganization(
             app.state.pipeline
         )
+        # M9.16/M9.31: innovation watch over the real tool runtime,
+        # shared pipeline (evaluation), and shared knowledge graph.
+        from core.innovation_watch import InnovationWatch
+
+        app.state.innovation_watch = InnovationWatch(
+            app.state.tool_runtime,
+            app.state.pipeline,
+            app.state.pipeline._get_knowledge_graph(),
+        )
         yield
 
     app = FastAPI(title=settings.app_name, lifespan=lifespan)
@@ -287,6 +297,9 @@ def create_app() -> FastAPI:
     # M9.12
     if organization_router:
         app.include_router(organization_router.router)
+    # M9.16 / M9.31
+    if innovation_router:
+        app.include_router(innovation_router.router)
 
     return app
 
