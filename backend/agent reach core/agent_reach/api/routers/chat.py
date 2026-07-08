@@ -45,8 +45,12 @@ async def chat(
                 session_id=request.session_id,
                 extra_context=request.context,
             )
+            # M9.3: surface the trace so every chat is observable.
             return ChatResponse.from_outcome(
-                result.outcome, session_id=request.session_id
+                result.outcome,
+                session_id=request.session_id,
+                request_id=result.trace.request_id,
+                trace=result.trace.to_dict(),
             )
         except Exception:
             logger.exception("Pipeline failed, falling back to controller")

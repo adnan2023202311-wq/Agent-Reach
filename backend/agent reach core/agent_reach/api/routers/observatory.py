@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 
 from api.dependencies import get_pipeline, get_controller
 
@@ -53,14 +53,38 @@ async def live_execution(pipeline=Depends(get_pipeline), controller=Depends(get_
     }
 
 
-@router.get("/trace/{request_id}")
-async def get_trace(request_id: str) -> dict[str, Any]:
-    """Fetch a specific execution trace – stub for now (stateless)."""
+@router.get("/traces")
+async def list_traces(limit: int = 50, pipeline=Depends(get_pipeline)) -> dict[str, Any]:
+    """List recent execution traces, newest first (M9.3)."""
+    if pipeline is None:
+        raise HTTPException(status_code=503, detail="Intelligent pipeline not available")
+    traces = pipeline.list_traces(limit=limit)
     return {
-        "request_id": request_id,
-        "found": False,
-        "message": "Trace persistence is a future Milestone 8.5 enhancement – currently traces are in-memory per request.",
+        "traces": [t.to_dict() for t in traces],
+        "count": len(traces),
+        "aggregates": pipeline.trace_store.aggregates(),
     }
+
+
+@router.get("/trace/{request_id}")
+async def get_trace(request_id: str, pipeline=Depends(get_pipeline)) -> dict[str, Any]:
+    """Fetch a persisted execution trace by request id (M9.3).
+
+    Traces are recorded by the IntelligentPipeline on every execution
+    and held in a bounded in-memory store (core/trace_store.py).
+    """
+    if pipeline is None:
+        raise HTTPException(status_code=503, detail="Intelligent pipeline not available")
+    trace = pipeline.get_trace(request_id)
+    if trace is None:
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "message": f"No trace recorded for request '{request_id}'.",
+                "code": "TRACE_NOT_FOUND",
+            },
+        )
+    return {"request_id": request_id, "found": True, "trace": trace.to_dict()}
 
 
 @router.get("/metrics")

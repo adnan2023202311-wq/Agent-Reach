@@ -15,8 +15,13 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
+from typing import TYPE_CHECKING
+
 from core.controller import MainController
 from domain.models import TaskExecutionOutcome, TaskStatus
+
+if TYPE_CHECKING:  # pragma: no cover
+    from core.trace_store import PipelineTraceStore
 
 logger = logging.getLogger(__name__)
 
@@ -123,9 +128,19 @@ class IntelligentPipeline:
     Wraps MainController and layers every M7 subsystem around it.
     """
 
-    def __init__(self, controller: MainController, config: Optional[PipelineConfig] = None) -> None:
+    def __init__(
+        self,
+        controller: MainController,
+        config: Optional[PipelineConfig] = None,
+        trace_store: Optional["PipelineTraceStore"] = None,
+    ) -> None:
         self._controller = controller
         self._config = config or PipelineConfig()
+        # M9.3: every execution trace is persisted so requests remain
+        # observable and debuggable after they complete.
+        from core.trace_store import PipelineTraceStore
+
+        self._trace_store = trace_store or PipelineTraceStore()
         self._router: Any = None
         self._memory: Any = None
         self._context_engine: Any = None
@@ -145,6 +160,7 @@ class IntelligentPipeline:
         trace = PipelineTrace()
         effective_message = message
         effective_session = session_id or "default"
+        tutti_export: Optional[dict[str, Any]] = None
 
         try:
             effective_message = await self._step_router(effective_message, effective_session, trace)
@@ -166,6 +182,9 @@ class IntelligentPipeline:
         trace.total_latency_ms = (time.perf_counter() - pipeline_start) * 1000
         self._total_requests += 1
         self._total_latency_ms += trace.total_latency_ms
+
+        # M9.3: persist the trace so /observatory can serve it later.
+        self._trace_store.record(trace)
 
         return PipelineResult(outcome=outcome, trace=trace, tutti_export=tutti_export if self._config.enable_tutti else None)
 
@@ -371,6 +390,21 @@ class IntelligentPipeline:
             self._tutti = TuttiExporter()
         return self._tutti
 
+    # ── Trace access (M9.3) ─────────────────────────────────────
+
+    @property
+    def trace_store(self) -> "PipelineTraceStore":
+        """The store holding every recorded execution trace."""
+        return self._trace_store
+
+    def get_trace(self, request_id: str) -> Optional[PipelineTrace]:
+        """Look up a persisted execution trace by request id."""
+        return self._trace_store.get(request_id)
+
+    def list_traces(self, limit: int = 50) -> list[PipelineTrace]:
+        """Return recent execution traces, newest first."""
+        return self._trace_store.list_recent(limit)
+
     # ── Verify & Stats ──────────────────────────────────────────
 
     def verify_integration(self) -> dict[str, Any]:
@@ -434,5 +468,6 @@ class IntelligentPipeline:
             self._learning.clear()
         if self._tutti:
             self._tutti.clear()
+        self._trace_store.clear()
         self._total_requests = 0
         self._total_latency_ms = 0.0

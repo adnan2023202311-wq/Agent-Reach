@@ -84,17 +84,31 @@ class DashboardSnapshot(BaseModel):
 
 
 class ChatResponse(BaseModel):
-    """What POST /api/v1/chat returns."""
+    """What POST /api/v1/chat returns.
+
+    M9.3 addition: ``request_id`` links the response to its persisted
+    execution trace (GET /api/v1/observatory/trace/{request_id}), and
+    ``trace`` optionally embeds the full per-stage breakdown so the
+    frontend can render the execution timeline without a second call.
+    Both are None when the request bypassed the IntelligentPipeline
+    (controller fallback path) — real absence, not fabricated data.
+    """
 
     session_id: Optional[str]
     plan_id: str
     status: str
     answer: str
     results: list[AgentResult]
+    request_id: Optional[str] = None
+    trace: Optional[dict[str, Any]] = None
 
     @classmethod
     def from_outcome(
-        cls, outcome: TaskExecutionOutcome, session_id: Optional[str]
+        cls,
+        outcome: TaskExecutionOutcome,
+        session_id: Optional[str],
+        request_id: Optional[str] = None,
+        trace: Optional[dict[str, Any]] = None,
     ) -> "ChatResponse":
         return cls(
             session_id=session_id,
@@ -102,4 +116,6 @@ class ChatResponse(BaseModel):
             status=outcome.status.value,
             answer=outcome.answer,
             results=outcome.results,
+            request_id=request_id,
+            trace=trace,
         )
