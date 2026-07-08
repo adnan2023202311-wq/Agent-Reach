@@ -281,3 +281,31 @@ async def delete_memory(memory_id: str, pipeline=Depends(get_pipeline)) -> dict[
             detail={"message": f"Memory '{memory_id}' not found.", "code": "MEMORY_NOT_FOUND"},
         )
     return {"id": memory_id, "status": "deleted"}
+
+def _adaptive(request):
+    manager = getattr(request.app.state, "adaptive_memory", None)
+    if manager is None:
+        raise HTTPException(status_code=503, detail="Adaptive memory manager not available")
+    return manager
+
+
+@router.get("/adaptive/status")
+async def adaptive_status(request: Request) -> dict[str, Any]:
+    """Adaptive memory policy + live counts (M9.21)."""
+    return _adaptive(request).get_status()
+
+
+@router.post("/adaptive/optimize")
+async def adaptive_optimize(request: Request) -> dict[str, Any]:
+    """Run one full evolution pass: consolidate → forget → compress.
+
+    Returns real before/after memory counts (M9.21).
+    """
+    return _adaptive(request).optimize().to_dict()
+
+
+@router.get("/adaptive/reports")
+async def adaptive_reports(request: Request, limit: int = 20) -> dict[str, Any]:
+    """Past evolution reports, newest first (M9.21)."""
+    reports = _adaptive(request).get_reports(limit=limit)
+    return {"reports": [r.to_dict() for r in reports], "count": len(reports)}

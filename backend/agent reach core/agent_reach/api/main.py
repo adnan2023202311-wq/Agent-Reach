@@ -159,6 +159,13 @@ def create_app() -> FastAPI:
             app.state.prompt_evolution,
         )
         app.state.improvement_loop.attach(app.state.event_hub)
+        # M9.21: adaptive memory evolution over the pipeline's SHARED
+        # LongCat engine.
+        from memory.adaptive import AdaptiveMemoryManager
+
+        app.state.adaptive_memory = AdaptiveMemoryManager(
+            app.state.pipeline._get_memory()
+        )
         yield
 
     app = FastAPI(title=settings.app_name, lifespan=lifespan)
