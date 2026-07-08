@@ -72,6 +72,7 @@ collaboration_router = _try_import_router("collaboration")
 agent_studio_router = _try_import_router("agent_studio")
 # M9.24
 events_router = _try_import_router("events")
+optimization_router = _try_import_router("optimization")
 from composition import (
     build_default_controller,
     build_conversation_engine,
@@ -128,6 +129,10 @@ def create_app() -> FastAPI:
         seed_marketplace_from_tools(
             app.state.plugin_marketplace, app.state.tool_runtime
         )
+        # M9.14: self-optimization engine over the shared pipeline.
+        from core.self_optimization import SelfOptimizationEngine
+
+        app.state.optimization_engine = SelfOptimizationEngine(app.state.pipeline)
         yield
 
     app = FastAPI(title=settings.app_name, lifespan=lifespan)
@@ -175,6 +180,9 @@ def create_app() -> FastAPI:
     # M9.24
     if events_router:
         app.include_router(events_router.router)
+    # M9.14
+    if optimization_router:
+        app.include_router(optimization_router.router)
 
     return app
 
