@@ -82,6 +82,7 @@ qa_router = _try_import_router("qa")
 code_review_router = _try_import_router("code_review")
 organization_router = _try_import_router("organization")
 innovation_router = _try_import_router("innovation")
+auto_integration_router = _try_import_router("auto_integration")
 from composition import (
     build_default_controller,
     build_conversation_engine,
@@ -223,6 +224,12 @@ def create_app() -> FastAPI:
             app.state.pipeline,
             app.state.pipeline._get_knowledge_graph(),
         )
+        # M9.17: auto-integration over the M9.26 adapter registry.
+        from infrastructure.auto_integration import AutoIntegrationEngine
+
+        app.state.auto_integration = AutoIntegrationEngine(
+            app.state.adapter_registry, app.state.pipeline
+        )
         yield
 
     app = FastAPI(title=settings.app_name, lifespan=lifespan)
@@ -300,6 +307,9 @@ def create_app() -> FastAPI:
     # M9.16 / M9.31
     if innovation_router:
         app.include_router(innovation_router.router)
+    # M9.17
+    if auto_integration_router:
+        app.include_router(auto_integration_router.router)
 
     return app
 
