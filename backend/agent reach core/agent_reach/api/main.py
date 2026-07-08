@@ -78,6 +78,7 @@ improvement_router = _try_import_router("improvement")
 collaboration_engine_router = _try_import_router("collaboration_engine")
 adapters_router = _try_import_router("adapters")
 platform_router = _try_import_router("platform")
+qa_router = _try_import_router("qa")
 from composition import (
     build_default_controller,
     build_conversation_engine,
@@ -190,6 +191,15 @@ def create_app() -> FastAPI:
         app.state.platform_introspection = PlatformIntrospection(
             app.state.pipeline, app.state.tool_runtime, app
         )
+        # M9.13: QA framework over the shared runtime evidence.
+        from core.qa_framework import QAFramework
+
+        app.state.qa_framework = QAFramework(
+            app.state.pipeline,
+            app.state.tool_runtime,
+            app.state.workflow_run_manager,
+            app.state.platform_introspection,
+        )
         yield
 
     app = FastAPI(title=settings.app_name, lifespan=lifespan)
@@ -255,6 +265,9 @@ def create_app() -> FastAPI:
     # M9.11
     if platform_router:
         app.include_router(platform_router.router)
+    # M9.13
+    if qa_router:
+        app.include_router(qa_router.router)
 
     return app
 
