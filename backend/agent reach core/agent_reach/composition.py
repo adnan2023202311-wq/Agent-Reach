@@ -152,6 +152,7 @@ def build_tool_runtime(
 def build_intelligent_pipeline(
     settings: Optional[Settings] = None,
     config: Optional[PipelineConfig] = None,
+    event_hub: Optional[Any] = None,
 ) -> IntelligentPipeline:
     """Build the fully integrated M7.5 Intelligent Pipeline.
 
@@ -162,9 +163,21 @@ def build_intelligent_pipeline(
 
     Falls back gracefully to bare MainController behavior when
     subsystems are disabled in PipelineConfig.
+
+    M9.24: pass an event_hub (core/runtime_events.RuntimeEventHub) to
+    have every execution publish the canonical runtime event chain.
     """
     controller = build_default_controller(settings)
-    return IntelligentPipeline(controller=controller, config=config)
+    return IntelligentPipeline(
+        controller=controller, config=config, event_hub=event_hub
+    )
+
+
+def build_event_hub() -> "RuntimeEventHub":
+    """Build the M9.24 runtime event hub around the existing EventBus."""
+    from core.runtime_events import RuntimeEventHub
+
+    return RuntimeEventHub()
 
 
 def _try_load_plugins() -> Optional[Any]:

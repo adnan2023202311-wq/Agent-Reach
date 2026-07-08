@@ -70,9 +70,12 @@ playground_router = _try_import_router("playground")
 connectors_router = _try_import_router("connectors")
 collaboration_router = _try_import_router("collaboration")
 agent_studio_router = _try_import_router("agent_studio")
+# M9.24
+events_router = _try_import_router("events")
 from composition import (
     build_default_controller,
     build_conversation_engine,
+    build_event_hub,
     build_intelligent_pipeline,
     build_tool_runtime,
     build_workflow_engine,
@@ -90,8 +93,13 @@ def create_app() -> FastAPI:
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         # Build the core controller (backward compatible)
         app.state.controller = build_default_controller(settings)
+        # M9.24: runtime event hub — the pipeline publishes the
+        # canonical event chain through the existing EventBus.
+        app.state.event_hub = build_event_hub()
         # Build the M7.5 intelligent pipeline (recommended entry point)
-        app.state.pipeline = build_intelligent_pipeline(settings)
+        app.state.pipeline = build_intelligent_pipeline(
+            settings, event_hub=app.state.event_hub
+        )
         # Build M6 components.
         app.state.conversation_engine = build_conversation_engine(settings)
         app.state.session_manager = app.state.conversation_engine._session_manager
@@ -164,6 +172,9 @@ def create_app() -> FastAPI:
         app.include_router(collaboration_router.router)
     if agent_studio_router:
         app.include_router(agent_studio_router.router)
+    # M9.24
+    if events_router:
+        app.include_router(events_router.router)
 
     return app
 

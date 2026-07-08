@@ -133,6 +133,7 @@ class IntelligentPipeline:
         controller: MainController,
         config: Optional[PipelineConfig] = None,
         trace_store: Optional["PipelineTraceStore"] = None,
+        event_hub: Optional[Any] = None,
     ) -> None:
         self._controller = controller
         self._config = config or PipelineConfig()
@@ -141,6 +142,10 @@ class IntelligentPipeline:
         from core.trace_store import PipelineTraceStore
 
         self._trace_store = trace_store or PipelineTraceStore()
+        # M9.24: optional event hub — when present, the pipeline
+        # publishes the canonical runtime event chain. None (default)
+        # preserves pre-M9.24 behavior exactly.
+        self._event_hub = event_hub
         self._router: Any = None
         self._memory: Any = None
         self._context_engine: Any = None
@@ -186,7 +191,80 @@ class IntelligentPipeline:
         # M9.3: persist the trace so /observatory can serve it later.
         self._trace_store.record(trace)
 
+        # M9.24: publish the runtime event chain from the REAL trace.
+        await self._publish_events(trace, effective_session)
+
         return PipelineResult(outcome=outcome, trace=trace, tutti_export=tutti_export if self._config.enable_tutti else None)
+
+    async def _publish_events(self, trace: PipelineTrace, session_id: str) -> None:
+        """Publish the M9.24 event chain for one completed execution.
+
+        Every event carries the request_id, so subscribers (and the
+        /events API) can join events back to the persisted trace.
+        Publishing failures never break request processing.
+        """
+        if self._event_hub is None:
+            return
+        try:
+            from core.runtime_events import RuntimeEvent
+
+            base = {"request_id": trace.request_id, "session_id": session_id}
+            await self._event_hub.publish(
+                RuntimeEvent.PIPELINE_STARTED, {**base, "timestamp": trace.timestamp}
+            )
+            if trace.router_active:
+                await self._event_hub.publish(
+                    RuntimeEvent.ROUTER_DECIDED,
+                    {**base, "provider": trace.router_provider},
+                )
+            if trace.memory_active:
+                await self._event_hub.publish(
+                    RuntimeEvent.MEMORY_UPDATED,
+                    {**base, "items_retrieved": trace.memory_items_retrieved},
+                )
+            if trace.context_active:
+                await self._event_hub.publish(
+                    RuntimeEvent.CONTEXT_BUILT,
+                    {**base, "tokens_used": trace.context_tokens_used},
+                )
+            if trace.kg_active:
+                await self._event_hub.publish(
+                    RuntimeEvent.KNOWLEDGE_UPDATED,
+                    {
+                        **base,
+                        "nodes_added": trace.kg_nodes_added,
+                        "edges_added": trace.kg_edges_added,
+                    },
+                )
+            if trace.reflection_active:
+                await self._event_hub.publish(
+                    RuntimeEvent.REFLECTION_TRIGGERED,
+                    {
+                        **base,
+                        "score": trace.reflection_score,
+                        "retried": trace.reflection_retried,
+                    },
+                )
+            if trace.learning_active:
+                await self._event_hub.publish(
+                    RuntimeEvent.LEARNING_TRIGGERED,
+                    {**base, "recorded": trace.learning_recorded},
+                )
+            terminal = (
+                RuntimeEvent.PIPELINE_FAILED
+                if trace.errors
+                else RuntimeEvent.PIPELINE_COMPLETED
+            )
+            await self._event_hub.publish(
+                terminal,
+                {
+                    **base,
+                    "latency_ms": trace.total_latency_ms,
+                    "errors": list(trace.errors),
+                },
+            )
+        except Exception as exc:  # noqa: BLE001 — events must never break requests
+            logger.warning("Event publishing failed: %s", exc)
 
     # ── Steps ───────────────────────────────────────────────────
 
