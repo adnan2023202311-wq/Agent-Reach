@@ -73,6 +73,7 @@ agent_studio_router = _try_import_router("agent_studio")
 # M9.24
 events_router = _try_import_router("events")
 optimization_router = _try_import_router("optimization")
+benchmark_lab_router = _try_import_router("benchmark_lab")
 from composition import (
     build_default_controller,
     build_conversation_engine,
@@ -137,6 +138,12 @@ def create_app() -> FastAPI:
         from prompts.evolution import PromptEvolutionEngine
 
         app.state.prompt_evolution = PromptEvolutionEngine()
+        # M9.19: benchmark lab feeding the pipeline's SHARED router.
+        from benchmarks.provider_lab import ProviderBenchmarkLab
+
+        app.state.benchmark_lab = ProviderBenchmarkLab(
+            settings, app.state.pipeline._get_router()
+        )
         yield
 
     app = FastAPI(title=settings.app_name, lifespan=lifespan)
@@ -187,6 +194,9 @@ def create_app() -> FastAPI:
     # M9.14
     if optimization_router:
         app.include_router(optimization_router.router)
+    # M9.19
+    if benchmark_lab_router:
+        app.include_router(benchmark_lab_router.router)
 
     return app
 
