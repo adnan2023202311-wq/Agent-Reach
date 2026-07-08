@@ -498,6 +498,35 @@ class IntelligentPipeline:
             self._tutti = TuttiExporter()
         return self._tutti
 
+    # ── Subsystem extension point (M9.26) ───────────────────────
+
+    def use_subsystem(self, name: str, implementation: Any) -> None:
+        """Swap a pipeline subsystem for an alternative implementation.
+
+        The M9.26 Future AI Layer's activation hook: callers (the
+        AdapterRegistry, tests, the composition root) can bind an
+        alternative memory / context / router implementation without
+        modifying pipeline code. Validation of the implementation's
+        interface is the caller's responsibility (AdapterRegistry
+        validates structurally before ever calling this).
+        """
+        slots = {
+            "memory": "_memory",
+            "context": "_context_engine",
+            "router": "_router",
+            "moa": "_moa",
+            "reflection": "_reflection",
+            "knowledge_graph": "_knowledge_graph",
+            "learning": "_learning",
+            "tutti": "_tutti",
+        }
+        slot = slots.get(name)
+        if slot is None:
+            raise ValueError(
+                f"Unknown subsystem '{name}'. Valid: {sorted(slots)}"
+            )
+        setattr(self, slot, implementation)
+
     # ── Trace access (M9.3) ─────────────────────────────────────
 
     @property

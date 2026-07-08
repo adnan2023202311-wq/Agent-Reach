@@ -76,6 +76,7 @@ optimization_router = _try_import_router("optimization")
 benchmark_lab_router = _try_import_router("benchmark_lab")
 improvement_router = _try_import_router("improvement")
 collaboration_engine_router = _try_import_router("collaboration_engine")
+adapters_router = _try_import_router("adapters")
 from composition import (
     build_default_controller,
     build_conversation_engine,
@@ -175,6 +176,13 @@ def create_app() -> FastAPI:
             app.state.controller._planner,
             app.state.controller._dispatcher,
         )
+        # M9.26: Future AI Layer adapter registry over the shared
+        # pipeline + tool runtime.
+        from infrastructure.adapters import AdapterRegistry
+
+        app.state.adapter_registry = AdapterRegistry(
+            app.state.pipeline, app.state.tool_runtime
+        )
         yield
 
     app = FastAPI(title=settings.app_name, lifespan=lifespan)
@@ -234,6 +242,9 @@ def create_app() -> FastAPI:
     # M9.29
     if collaboration_engine_router:
         app.include_router(collaboration_engine_router.router)
+    # M9.26
+    if adapters_router:
+        app.include_router(adapters_router.router)
 
     return app
 
