@@ -107,6 +107,7 @@ class WorkflowEngine:
         self,
         workflow: Workflow,
         initial_variables: Optional[dict[str, Any]] = None,
+        step_gate: Optional[Any] = None,
     ) -> WorkflowResult:
         """Execute ``workflow`` asynchronously.
 
@@ -116,10 +117,18 @@ class WorkflowEngine:
         ``retry_policy``; if all attempts fail, the workflow is
         marked ``FAILED`` and execution stops.
 
+        M9.10: ``step_gate`` is an optional async callable awaited
+        with each step *before* it executes. It gives run managers a
+        hook for pause/resume (block inside the gate) and cancel
+        (raise ``asyncio.CancelledError`` from the gate — it derives
+        from BaseException, so the engine's error handling doesn't
+        convert it into a FAILED state; it propagates to the caller).
+        ``None`` (the default) preserves pre-M9.10 behavior exactly.
+
         Returns a :class:`WorkflowResult` capturing every step's
         outcome plus the resolved workflow outputs.
         """
-        return await self._run(workflow, initial_variables)
+        return await self._run(workflow, initial_variables, step_gate=step_gate)
 
     def run_sync(
         self,
@@ -137,6 +146,7 @@ class WorkflowEngine:
         self,
         workflow: Workflow,
         initial_variables: Optional[dict[str, Any]] = None,
+        step_gate: Optional[Any] = None,
     ) -> WorkflowResult:
         started_at = time.time()
         state = WorkflowState.RUNNING
@@ -155,11 +165,28 @@ class WorkflowEngine:
 
         error: Optional[str] = None
         try:
-            await self._execute_steps(workflow, context)
+            await self._execute_steps(workflow, context, step_gate=step_gate)
             state = WorkflowState.COMPLETED
         except _WorkflowFailed as exc:
             state = WorkflowState.FAILED
             error = str(exc)
+        except asyncio.CancelledError:
+            # M9.10: cooperative cancellation via the step gate or an
+            # outer task cancel. Record the partial run as CANCELLED,
+            # then re-raise so the awaiting caller sees the cancel.
+            finished_at = time.time()
+            result = WorkflowResult(
+                workflow_id=workflow.workflow_id,
+                state=WorkflowState.CANCELLED,
+                outputs={},
+                history=list(context.history),
+                duration_ms=(finished_at - started_at) * 1000.0,
+                error="Workflow cancelled",
+                started_at=started_at,
+                finished_at=finished_at,
+            )
+            self._runs[workflow.workflow_id] = result
+            raise
         except Exception as exc:  # noqa: BLE001 - last-resort safety net
             state = WorkflowState.FAILED
             error = f"Workflow raised unexpected error: {exc}"
@@ -189,6 +216,7 @@ class WorkflowEngine:
         self,
         workflow: Workflow,
         context: WorkflowContext,
+        step_gate: Optional[Any] = None,
     ) -> None:
         """Run all steps in declared order.
 
@@ -197,8 +225,13 @@ class WorkflowEngine:
         skipped and not executed. After all immediate dependencies
         complete (best-effort), the step itself runs and any output
         keys it declares are placed into ``context.step_outputs``.
+
+        M9.10: when ``step_gate`` is provided it is awaited before
+        each step, enabling pause/resume/cancel from a run manager.
         """
         for step in workflow.steps:
+            if step_gate is not None:
+                await step_gate(step)
             await self._execute_step(workflow, step, context)
 
     async def _execute_step(

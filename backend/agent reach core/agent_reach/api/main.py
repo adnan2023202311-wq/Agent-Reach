@@ -99,6 +99,13 @@ def create_app() -> FastAPI:
         app.state.workflow_registry = build_workflow_registry()
         # M9.6: live tool runtime — real tools, execution history, metrics.
         app.state.tool_runtime = build_tool_runtime(settings)
+        # M9.10: workflow run manager — pause/resume/retry/cancel on the
+        # SAME engine instance the /workflows router uses.
+        from workflows.run_manager import WorkflowRunManager
+
+        app.state.workflow_run_manager = WorkflowRunManager(
+            app.state.workflow_engine
+        )
         yield
 
     app = FastAPI(title=settings.app_name, lifespan=lifespan)
