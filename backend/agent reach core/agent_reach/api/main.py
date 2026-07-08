@@ -80,6 +80,7 @@ adapters_router = _try_import_router("adapters")
 platform_router = _try_import_router("platform")
 qa_router = _try_import_router("qa")
 code_review_router = _try_import_router("code_review")
+organization_router = _try_import_router("organization")
 from composition import (
     build_default_controller,
     build_conversation_engine,
@@ -206,6 +207,12 @@ def create_app() -> FastAPI:
         from core.code_review import CodeReviewEngine
 
         app.state.code_review = CodeReviewEngine(app.state.pipeline)
+        # M9.12: engineering organization on the shared pipeline.
+        from agents.organization import EngineeringOrganization
+
+        app.state.engineering_organization = EngineeringOrganization(
+            app.state.pipeline
+        )
         yield
 
     app = FastAPI(title=settings.app_name, lifespan=lifespan)
@@ -277,6 +284,9 @@ def create_app() -> FastAPI:
     # M9.15
     if code_review_router:
         app.include_router(code_review_router.router)
+    # M9.12
+    if organization_router:
+        app.include_router(organization_router.router)
 
     return app
 
