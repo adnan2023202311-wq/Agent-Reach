@@ -144,6 +144,10 @@ def create_app() -> FastAPI:
         app.state.benchmark_lab = ProviderBenchmarkLab(
             settings, app.state.pipeline._get_router()
         )
+        # M9.23: enterprise engine — real orgs/teams/workspaces/RBAC/audit.
+        from enterprise import EnterpriseEngine
+
+        app.state.enterprise = EnterpriseEngine()
         yield
 
     app = FastAPI(title=settings.app_name, lifespan=lifespan)
