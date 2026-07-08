@@ -38,48 +38,38 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from api.exception_handlers import register_exception_handlers
 from api.routers import agents, chat, conversations, dashboard, health, providers, tools, workflows
-# Milestone 8 routers
-try:
-    from api.routers import memory as memory_router
-except Exception:
-    memory_router = None
-try:
-    from api.routers import knowledge as knowledge_router
-except Exception:
-    knowledge_router = None
-try:
-    from api.routers import prompts_studio as prompts_router
-except Exception:
-    prompts_router = None
-try:
-    from api.routers import observatory as observatory_router
-except Exception:
-    observatory_router = None
-try:
-    from api.routers import skills as skills_router
-except Exception:
-    skills_router = None
+# Milestone 8 routers — imported via a helper that LOGS failures.
+# M9.1: the previous bare try/except silently dropped routers whose
+# imports failed (e.g. a missing dependency), leaving whole screens
+# dead with no diagnostic. Failures are now visible in the logs.
+import importlib
+import logging
+
+_logger = logging.getLogger(__name__)
+
+
+def _try_import_router(module_name: str):
+    try:
+        return importlib.import_module(f"api.routers.{module_name}")
+    except Exception:
+        _logger.exception(
+            "Router 'api.routers.%s' failed to import and will NOT be mounted",
+            module_name,
+        )
+        return None
+
+
+memory_router = _try_import_router("memory")
+knowledge_router = _try_import_router("knowledge")
+prompts_router = _try_import_router("prompts_studio")
+observatory_router = _try_import_router("observatory")
+skills_router = _try_import_router("skills")
 # M8 extended
-try:
-    from api.routers import marketplace as marketplace_router
-except Exception:
-    marketplace_router = None
-try:
-    from api.routers import playground as playground_router
-except Exception:
-    playground_router = None
-try:
-    from api.routers import connectors as connectors_router
-except Exception:
-    connectors_router = None
-try:
-    from api.routers import collaboration as collaboration_router
-except Exception:
-    collaboration_router = None
-try:
-    from api.routers import agent_studio as agent_studio_router
-except Exception:
-    agent_studio_router = None
+marketplace_router = _try_import_router("marketplace")
+playground_router = _try_import_router("playground")
+connectors_router = _try_import_router("connectors")
+collaboration_router = _try_import_router("collaboration")
+agent_studio_router = _try_import_router("agent_studio")
 from composition import (
     build_default_controller,
     build_conversation_engine,

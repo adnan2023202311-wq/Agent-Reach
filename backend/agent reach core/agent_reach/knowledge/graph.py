@@ -27,6 +27,9 @@ class NodeType(str, Enum):
     PROMPT = "prompt"
     PROVIDER = "provider"
     EXECUTION = "execution"
+    # M9.8: RAG Studio uploads and generic entities
+    DOCUMENT = "document"
+    ENTITY = "entity"
 
 
 class EdgeType(str, Enum):
@@ -43,7 +46,12 @@ class EdgeType(str, Enum):
 
 @dataclass
 class KnowledgeNode:
-    """A node in the knowledge graph."""
+    """A node in the knowledge graph.
+
+    M9.8: ``confidence`` (0.0–1.0) expresses how certain the system is
+    about this entity, and ``version`` counts revisions — both default
+    to their pre-M9 implicit values so existing callers are unaffected.
+    """
 
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
     node_type: NodeType = NodeType.PROJECT
@@ -52,6 +60,8 @@ class KnowledgeNode:
     properties: dict[str, Any] = field(default_factory=dict)
     created_at: float = field(default_factory=time.time)
     updated_at: float = field(default_factory=time.time)
+    confidence: float = 1.0
+    version: int = 1
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -60,6 +70,8 @@ class KnowledgeNode:
             "label": self.label,
             "description": self.description,
             "properties": dict(self.properties),
+            "confidence": self.confidence,
+            "version": self.version,
         }
 
 
@@ -100,6 +112,10 @@ class KnowledgeGraph:
         self._incoming: dict[str, list[str]] = defaultdict(list)
         # Index by type
         self._by_type: dict[NodeType, list[str]] = defaultdict(list)
+        # M9.8: per-node version history — list of snapshots, oldest
+        # first. A snapshot is taken *before* each mutation so the
+        # history plus the live node reconstructs the full evolution.
+        self._node_history: dict[str, list[dict[str, Any]]] = defaultdict(list)
 
     # ------------------------------------------------------------------
     # Node management
@@ -112,18 +128,103 @@ class KnowledgeGraph:
         description: str = "",
         properties: Optional[dict[str, Any]] = None,
         node_id: str = "",
+        confidence: float = 1.0,
     ) -> str:
-        """Add a node to the graph. Returns node ID."""
+        """Add a node to the graph. Returns node ID.
+
+        M9.8: re-adding an existing node_id updates it as a new
+        version (recording history) instead of silently overwriting.
+        """
+        resolved_id = node_id or str(uuid.uuid4())
+        if resolved_id in self._nodes:
+            return self.update_node(
+                resolved_id,
+                label=label,
+                description=description,
+                properties=properties,
+                confidence=confidence,
+            )
+
         node = KnowledgeNode(
-            id=node_id or str(uuid.uuid4()),
+            id=resolved_id,
             node_type=node_type,
             label=label,
             description=description,
             properties=dict(properties or {}),
+            confidence=max(0.0, min(1.0, confidence)),
         )
         self._nodes[node.id] = node
         self._by_type[node_type].append(node.id)
         return node.id
+
+    def update_node(
+        self,
+        node_id: str,
+        label: Optional[str] = None,
+        description: Optional[str] = None,
+        properties: Optional[dict[str, Any]] = None,
+        confidence: Optional[float] = None,
+    ) -> str:
+        """Update a node, recording the previous state in history (M9.8).
+
+        Only the provided fields change. Bumps ``version`` and
+        ``updated_at``. Raises KeyError for unknown nodes.
+        """
+        node = self._nodes.get(node_id)
+        if node is None:
+            raise KeyError(f"Node '{node_id}' not found")
+
+        self._node_history[node_id].append(
+            {**node.to_dict(), "updated_at": node.updated_at}
+        )
+        if label is not None:
+            node.label = label
+        if description is not None:
+            node.description = description
+        if properties is not None:
+            node.properties.update(properties)
+        if confidence is not None:
+            node.confidence = max(0.0, min(1.0, confidence))
+        node.version += 1
+        node.updated_at = time.time()
+        return node.id
+
+    def get_node_history(self, node_id: str) -> list[dict[str, Any]]:
+        """Prior versions of a node, oldest first (M9.8).
+
+        Empty list when the node was never updated or doesn't exist.
+        """
+        return [dict(snapshot) for snapshot in self._node_history.get(node_id, [])]
+
+    def search(self, query: str, limit: int = 20) -> list[KnowledgeNode]:
+        """Entity search across labels, descriptions, and properties (M9.8).
+
+        Case-insensitive term matching, ranked by (match score ×
+        confidence): label hits weigh most, then description, then
+        property values. Empty query returns nothing.
+        """
+        terms = [t for t in query.lower().split() if t]
+        if not terms:
+            return []
+
+        scored: list[tuple[float, KnowledgeNode]] = []
+        for node in self._nodes.values():
+            label = node.label.lower()
+            description = node.description.lower()
+            prop_text = " ".join(str(v).lower() for v in node.properties.values())
+            score = 0.0
+            for term in terms:
+                if term in label:
+                    score += 3.0
+                if term in description:
+                    score += 2.0
+                if term in prop_text:
+                    score += 1.0
+            if score > 0:
+                scored.append((score * node.confidence, node))
+
+        scored.sort(key=lambda pair: pair[0], reverse=True)
+        return [node for _, node in scored[: max(0, limit)]]
 
     def get_node(self, node_id: str) -> Optional[KnowledgeNode]:
         """Get a node by ID."""
@@ -148,10 +249,11 @@ class KnowledgeGraph:
         return results
 
     def remove_node(self, node_id: str) -> bool:
-        """Remove a node and all its edges."""
+        """Remove a node, all its edges, and its version history."""
         if node_id not in self._nodes:
             return False
         del self._nodes[node_id]
+        self._node_history.pop(node_id, None)
 
         # Remove edges
         for edge_id in list(self._outgoing.get(node_id, [])):
@@ -407,3 +509,4 @@ class KnowledgeGraph:
         self._outgoing.clear()
         self._incoming.clear()
         self._by_type.clear()
+        self._node_history.clear()
