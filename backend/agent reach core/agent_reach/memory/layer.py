@@ -73,6 +73,9 @@ class MemoryLayer:
         self._memories: dict[str, MemoryItem] = {}
         self._max_short_term = max_short_term
         self._max_long_term = max_long_term
+        # M9.7: ids in this set are exempt from pruning and from
+        # limit-enforcement archiving (used by LongCat's pin feature).
+        self.protected_ids: set[str] = set()
 
     def store(
         self,
@@ -142,6 +145,7 @@ class MemoryLayer:
             mid for mid, item in self._memories.items()
             if item.memory_type == MemoryType.SHORT_TERM
             and (now - item.last_accessed) > max_age_seconds
+            and mid not in self.protected_ids
         ]
         for mid in to_remove:
             del self._memories[mid]
@@ -161,16 +165,22 @@ class MemoryLayer:
         return promoted
 
     def _enforce_limits(self) -> None:
-        """Ensure memory counts stay within configured limits."""
+        """Ensure memory counts stay within configured limits.
+
+        Protected (pinned) memories are never demoted by limit
+        enforcement — the excess is taken from unprotected items only.
+        """
         short_term = [m for m in self._memories.values() if m.memory_type == MemoryType.SHORT_TERM]
         if len(short_term) > self._max_short_term:
-            sorted_st = sorted(short_term, key=lambda m: m.score())
+            demotable = [m for m in short_term if m.id not in self.protected_ids]
+            sorted_st = sorted(demotable, key=lambda m: m.score())
             for item in sorted_st[: len(short_term) - self._max_short_term]:
                 item.memory_type = MemoryType.ARCHIVED
 
         long_term = [m for m in self._memories.values() if m.memory_type == MemoryType.LONG_TERM]
         if len(long_term) > self._max_long_term:
-            sorted_lt = sorted(long_term, key=lambda m: m.score())
+            demotable = [m for m in long_term if m.id not in self.protected_ids]
+            sorted_lt = sorted(demotable, key=lambda m: m.score())
             for item in sorted_lt[: len(long_term) - self._max_long_term]:
                 item.memory_type = MemoryType.ARCHIVED
 

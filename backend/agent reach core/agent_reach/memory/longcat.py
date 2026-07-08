@@ -261,6 +261,7 @@ class LongCatMemoryEngine:
         self._ranker = MemoryRanker()
         self._search = SemanticMemorySearch()
         self._consolidation_count: int = 0
+        self._pinned: set[str] = set()
 
     # ------------------------------------------------------------------
     # Core memory operations
@@ -316,6 +317,117 @@ class LongCatMemoryEngine:
             if mem is not None:
                 items.append((mem, score))
         return items
+
+    # ------------------------------------------------------------------
+    # Browse / Delete / Pin / Merge (M9.7)
+    # ------------------------------------------------------------------
+
+    def browse(
+        self,
+        memory_type: Optional[MemoryType] = None,
+        offset: int = 0,
+        limit: int = 50,
+        pinned_only: bool = False,
+    ) -> list[MemoryItem]:
+        """Browse stored memories with pagination.
+
+        Ordered newest-first by creation time. Unlike retrieve_relevant
+        this does not touch() items — browsing the memory studio must
+        not distort access-based relevance scores.
+        """
+        items = list(self._layer._memories.values())
+        if memory_type is not None:
+            items = [m for m in items if m.memory_type == memory_type]
+        if pinned_only:
+            items = [m for m in items if m.id in self._pinned]
+        items.sort(key=lambda m: m.created_at, reverse=True)
+        offset = max(0, offset)
+        limit = max(0, limit)
+        return items[offset : offset + limit]
+
+    def delete(self, memory_id: str) -> bool:
+        """Permanently delete a memory.
+
+        Removes it from the layer, the search index, working memory,
+        the memory graph, and the pinned set. Returns False if the id
+        is unknown.
+        """
+        if memory_id not in self._layer._memories:
+            return False
+        del self._layer._memories[memory_id]
+        self._search.deindex(memory_id)
+        if memory_id in self._working_memory:
+            self._working_memory.remove(memory_id)
+        self._pinned.discard(memory_id)
+        self._layer.protected_ids.discard(memory_id)
+        # Remove the graph node and any edges pointing at it.
+        self._graph.pop(memory_id, None)
+        for node in self._graph.values():
+            node.edges = {
+                target: rel
+                for target, rel in node.edges.items()
+                if target != memory_id
+            }
+        return True
+
+    def pin(self, memory_id: str) -> bool:
+        """Pin a memory: exempt from pruning and limit-archiving."""
+        if memory_id not in self._layer._memories:
+            return False
+        self._pinned.add(memory_id)
+        self._layer.protected_ids.add(memory_id)
+        return True
+
+    def unpin(self, memory_id: str) -> bool:
+        """Remove a pin. Returns False if the memory wasn't pinned."""
+        if memory_id not in self._pinned:
+            return False
+        self._pinned.discard(memory_id)
+        self._layer.protected_ids.discard(memory_id)
+        return True
+
+    def is_pinned(self, memory_id: str) -> bool:
+        return memory_id in self._pinned
+
+    @property
+    def pinned_ids(self) -> set[str]:
+        return set(self._pinned)
+
+    def merge(self, memory_ids: list[str], separator: str = "\n") -> Optional[str]:
+        """Merge several memories into one and delete the sources.
+
+        The merged memory keeps the maximum importance of the sources,
+        combines their metadata (later sources win key conflicts), and
+        is pinned if any source was pinned. Returns the new memory id,
+        or None when fewer than two of the ids exist.
+        """
+        sources = [
+            self._layer._memories[mid]
+            for mid in memory_ids
+            if mid in self._layer._memories
+        ]
+        if len(sources) < 2:
+            return None
+
+        content = separator.join(str(m.content) for m in sources)
+        importance = max(m.importance for m in sources)
+        metadata: dict[str, Any] = {}
+        for m in sources:
+            metadata.update(m.metadata)
+        metadata["merged_from"] = [m.id for m in sources]
+        any_pinned = any(m.id in self._pinned for m in sources)
+
+        merged_id = self.store(
+            content=content,
+            importance=importance,
+            metadata=metadata,
+            add_to_working=False,
+        )
+        for m in sources:
+            self.delete(m.id)
+        if any_pinned:
+            self.pin(merged_id)
+        return merged_id
 
     # ------------------------------------------------------------------
     # Working memory
@@ -733,6 +845,7 @@ class LongCatMemoryEngine:
             "memory_counts": counts,
             "memory_graph": graph,
             "consolidation_count": self._consolidation_count,
+            "pinned": len(self._pinned),
             "avg_importance": (
                 sum(m.importance for m in memories.values()) / max(1, len(memories))
             ),
@@ -748,3 +861,5 @@ class LongCatMemoryEngine:
         self._graph.clear()
         self._search.clear()
         self._consolidation_count = 0
+        self._pinned.clear()
+        self._layer.protected_ids.clear()

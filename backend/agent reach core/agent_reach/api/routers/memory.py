@@ -31,6 +31,16 @@ class MemoryQuery(BaseModel):
     min_importance: float = 0.0
 
 
+class MemoryMergeRequest(BaseModel):
+    memory_ids: list[str] = Field(min_length=2)
+    separator: str = "\n"
+
+
+class MemorySummarizeRequest(BaseModel):
+    memory_ids: list[str] = Field(min_length=1)
+    max_length: int = 500
+
+
 def _get_memory_engine(pipeline):
     if pipeline is None:
         raise HTTPException(status_code=503, detail="Intelligent pipeline not available")
@@ -125,6 +135,129 @@ async def compress_memory(pipeline=Depends(get_pipeline)) -> dict[str, Any]:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
+@router.get("/browse")
+async def browse_memory(
+    memory_type: Optional[str] = None,
+    offset: int = 0,
+    limit: int = 50,
+    pinned_only: bool = False,
+    pipeline=Depends(get_pipeline),
+) -> dict[str, Any]:
+    """Browse stored memories with pagination (M9.7).
+
+    Unlike /search this does not update access statistics, so
+    inspecting memory in the studio doesn't distort relevance scores.
+    """
+    mem = _get_memory_engine(pipeline)
+    from memory.layer import MemoryType
+
+    mt = None
+    if memory_type:
+        try:
+            mt = MemoryType(memory_type)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "message": f"Unknown memory_type '{memory_type}'. "
+                    f"Valid: {[t.value for t in MemoryType]}",
+                    "code": "INVALID_MEMORY_TYPE",
+                },
+            ) from exc
+    items = mem.browse(memory_type=mt, offset=offset, limit=limit, pinned_only=pinned_only)
+    return {
+        "items": [
+            {
+                "id": m.id,
+                "content": str(m.content),
+                "importance": m.importance,
+                "memory_type": m.memory_type.value,
+                "access_count": m.access_count,
+                "pinned": mem.is_pinned(m.id),
+                "metadata": dict(m.metadata),
+            }
+            for m in items
+        ],
+        "count": len(items),
+        "offset": offset,
+        "limit": limit,
+    }
+
+
+@router.post("/{memory_id}/pin")
+async def pin_memory(memory_id: str, pipeline=Depends(get_pipeline)) -> dict[str, Any]:
+    """Pin a memory: exempt from pruning and limit-archiving (M9.7)."""
+    mem = _get_memory_engine(pipeline)
+    if not mem.pin(memory_id):
+        raise HTTPException(
+            status_code=404,
+            detail={"message": f"Memory '{memory_id}' not found.", "code": "MEMORY_NOT_FOUND"},
+        )
+    return {"id": memory_id, "pinned": True}
+
+
+@router.delete("/{memory_id}/pin")
+async def unpin_memory(memory_id: str, pipeline=Depends(get_pipeline)) -> dict[str, Any]:
+    """Remove a pin (M9.7)."""
+    mem = _get_memory_engine(pipeline)
+    if not mem.unpin(memory_id):
+        raise HTTPException(
+            status_code=404,
+            detail={"message": f"Memory '{memory_id}' is not pinned.", "code": "NOT_PINNED"},
+        )
+    return {"id": memory_id, "pinned": False}
+
+
+@router.post("/merge")
+async def merge_memories(
+    body: MemoryMergeRequest, pipeline=Depends(get_pipeline)
+) -> dict[str, Any]:
+    """Merge multiple memories into one, deleting the sources (M9.7)."""
+    mem = _get_memory_engine(pipeline)
+    merged_id = mem.merge(body.memory_ids, separator=body.separator)
+    if merged_id is None:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "message": "At least two of the given memory ids must exist to merge.",
+                "code": "MERGE_INSUFFICIENT_SOURCES",
+            },
+        )
+    return {"id": merged_id, "status": "merged", "sources": body.memory_ids}
+
+
+@router.post("/summarize")
+async def summarize_memories(
+    body: MemorySummarizeRequest, pipeline=Depends(get_pipeline)
+) -> dict[str, Any]:
+    """Summarize a set of memories (M9.7) — uses LongCat's summarizer."""
+    mem = _get_memory_engine(pipeline)
+    summary = mem.summarize_memories(body.memory_ids, max_length=body.max_length)
+    return {"summary": summary, "memory_ids": body.memory_ids}
+
+
+@router.post("/semantic-search")
+async def semantic_search_memory(
+    q: MemoryQuery, pipeline=Depends(get_pipeline)
+) -> dict[str, Any]:
+    """Semantic (index-backed) search with scores (M9.7)."""
+    mem = _get_memory_engine(pipeline)
+    results = mem.semantic_search(q.query, limit=q.count)
+    return {
+        "items": [
+            {
+                "id": m.id,
+                "content": str(m.content),
+                "importance": m.importance,
+                "score": score,
+            }
+            for m, score in results
+            if m.importance >= q.min_importance
+        ],
+        "query": q.query,
+    }
+
+
 @router.delete("/clear")
 async def clear_memory(pipeline=Depends(get_pipeline)) -> dict[str, str]:
     """Clear all memory tiers (dev / testing)."""
@@ -134,3 +267,17 @@ async def clear_memory(pipeline=Depends(get_pipeline)) -> dict[str, str]:
         return {"status": "cleared"}
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+@router.delete("/{memory_id}")
+async def delete_memory(memory_id: str, pipeline=Depends(get_pipeline)) -> dict[str, Any]:
+    """Permanently delete one memory (M9.7).
+
+    Registered after /clear so the static route wins the match.
+    """
+    mem = _get_memory_engine(pipeline)
+    if not mem.delete(memory_id):
+        raise HTTPException(
+            status_code=404,
+            detail={"message": f"Memory '{memory_id}' not found.", "code": "MEMORY_NOT_FOUND"},
+        )
+    return {"id": memory_id, "status": "deleted"}
