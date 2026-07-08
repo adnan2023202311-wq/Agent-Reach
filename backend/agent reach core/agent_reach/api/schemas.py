@@ -72,15 +72,20 @@ class ProviderSummary(BaseModel):
 class DashboardSnapshot(BaseModel):
     """What GET /api/v1/dashboard reports.
 
-    `activity` and `recent_chats` are honestly empty — neither usage
-    metrics nor conversation history are persisted yet (InMemoryStore
-    isn't wired into MainController). Real zeros, not fabricated ones.
+    M9.4: `activity` and `recent_chats` are now populated from real
+    runtime data — persisted pipeline traces (core/trace_store.py) and
+    live SessionManager sessions. `runtime` carries the full live
+    statistics block (conversations, provider usage, memory size,
+    knowledge nodes, learning records, latency, errors, token usage,
+    estimated cost). Every value is read from a runtime component;
+    zeros are real zeros.
     """
 
     activity: list[dict[str, Any]] = Field(default_factory=list)
     recent_chats: list[dict[str, Any]] = Field(default_factory=list)
     active_agents: list[AgentSummary] = Field(default_factory=list)
     tools: list[dict[str, Any]] = Field(default_factory=list)
+    runtime: dict[str, Any] = Field(default_factory=dict)
 
 
 class ChatResponse(BaseModel):
