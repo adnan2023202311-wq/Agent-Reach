@@ -106,6 +106,11 @@ def create_app() -> FastAPI:
         app.state.workflow_run_manager = WorkflowRunManager(
             app.state.workflow_engine
         )
+        # M9.9: Agent Studio — runs custom agents through the SHARED
+        # intelligent pipeline (real traces, real observability).
+        from agents.studio import AgentStudio
+
+        app.state.agent_studio = AgentStudio(app.state.pipeline)
         yield
 
     app = FastAPI(title=settings.app_name, lifespan=lifespan)
