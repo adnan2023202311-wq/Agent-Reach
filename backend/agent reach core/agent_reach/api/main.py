@@ -79,6 +79,7 @@ collaboration_engine_router = _try_import_router("collaboration_engine")
 adapters_router = _try_import_router("adapters")
 platform_router = _try_import_router("platform")
 qa_router = _try_import_router("qa")
+code_review_router = _try_import_router("code_review")
 from composition import (
     build_default_controller,
     build_conversation_engine,
@@ -200,6 +201,11 @@ def create_app() -> FastAPI:
             app.state.workflow_run_manager,
             app.state.platform_introspection,
         )
+        # M9.15: code review — static verdict authority + optional
+        # model narrative through the shared pipeline.
+        from core.code_review import CodeReviewEngine
+
+        app.state.code_review = CodeReviewEngine(app.state.pipeline)
         yield
 
     app = FastAPI(title=settings.app_name, lifespan=lifespan)
@@ -268,6 +274,9 @@ def create_app() -> FastAPI:
     # M9.13
     if qa_router:
         app.include_router(qa_router.router)
+    # M9.15
+    if code_review_router:
+        app.include_router(code_review_router.router)
 
     return app
 
