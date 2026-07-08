@@ -74,6 +74,7 @@ agent_studio_router = _try_import_router("agent_studio")
 events_router = _try_import_router("events")
 optimization_router = _try_import_router("optimization")
 benchmark_lab_router = _try_import_router("benchmark_lab")
+improvement_router = _try_import_router("improvement")
 from composition import (
     build_default_controller,
     build_conversation_engine,
@@ -148,6 +149,16 @@ def create_app() -> FastAPI:
         from enterprise import EnterpriseEngine
 
         app.state.enterprise = EnterpriseEngine()
+        # M9.27: continuous self-improvement loop, advanced by real
+        # pipeline events (M9.24) — no background threads.
+        from core.self_improvement import SelfImprovementLoop
+
+        app.state.improvement_loop = SelfImprovementLoop(
+            app.state.pipeline,
+            app.state.optimization_engine,
+            app.state.prompt_evolution,
+        )
+        app.state.improvement_loop.attach(app.state.event_hub)
         yield
 
     app = FastAPI(title=settings.app_name, lifespan=lifespan)
@@ -201,6 +212,9 @@ def create_app() -> FastAPI:
     # M9.19
     if benchmark_lab_router:
         app.include_router(benchmark_lab_router.router)
+    # M9.27
+    if improvement_router:
+        app.include_router(improvement_router.router)
 
     return app
 
