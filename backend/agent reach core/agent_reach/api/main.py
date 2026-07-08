@@ -75,6 +75,7 @@ events_router = _try_import_router("events")
 optimization_router = _try_import_router("optimization")
 benchmark_lab_router = _try_import_router("benchmark_lab")
 improvement_router = _try_import_router("improvement")
+collaboration_engine_router = _try_import_router("collaboration_engine")
 from composition import (
     build_default_controller,
     build_conversation_engine,
@@ -166,6 +167,14 @@ def create_app() -> FastAPI:
         app.state.adaptive_memory = AdaptiveMemoryManager(
             app.state.pipeline._get_memory()
         )
+        # M9.29: multi-agent collaboration over the SHARED controller's
+        # planner + dispatcher (no parallel agent stack).
+        from core.collaboration_engine import CollaborationEngine
+
+        app.state.collaboration_engine = CollaborationEngine(
+            app.state.controller._planner,
+            app.state.controller._dispatcher,
+        )
         yield
 
     app = FastAPI(title=settings.app_name, lifespan=lifespan)
@@ -222,6 +231,9 @@ def create_app() -> FastAPI:
     # M9.27
     if improvement_router:
         app.include_router(improvement_router.router)
+    # M9.29
+    if collaboration_engine_router:
+        app.include_router(collaboration_engine_router.router)
 
     return app
 
