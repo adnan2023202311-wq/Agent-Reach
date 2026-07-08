@@ -84,6 +84,7 @@ organization_router = _try_import_router("organization")
 innovation_router = _try_import_router("innovation")
 auto_integration_router = _try_import_router("auto_integration")
 research_lab_router = _try_import_router("research_lab")
+release_router = _try_import_router("release")
 from composition import (
     build_default_controller,
     build_conversation_engine,
@@ -235,6 +236,15 @@ def create_app() -> FastAPI:
         from core.research_lab import ResearchLab
 
         app.state.research_lab = ResearchLab()
+        # M9.25/M9.30: release pipeline gated on every validation.
+        from core.release_pipeline import ReleasePipeline
+
+        app.state.release_pipeline = ReleasePipeline(
+            app.state.pipeline,
+            app.state.platform_introspection,
+            app.state.qa_framework,
+            app.state.code_review,
+        )
         yield
 
     app = FastAPI(title=settings.app_name, lifespan=lifespan)
@@ -318,6 +328,9 @@ def create_app() -> FastAPI:
     # M9.28
     if research_lab_router:
         app.include_router(research_lab_router.router)
+    # M9.25 / M9.30
+    if release_router:
+        app.include_router(release_router.router)
 
     return app
 
