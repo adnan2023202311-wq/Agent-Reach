@@ -111,6 +111,15 @@ def create_app() -> FastAPI:
         from agents.studio import AgentStudio
 
         app.state.agent_studio = AgentStudio(app.state.pipeline)
+        # M9.22: real plugin marketplace, seeded from the live tool
+        # registry (no hardcoded catalog).
+        from api.routers.marketplace import seed_marketplace_from_tools
+        from marketplace import PluginMarketplace
+
+        app.state.plugin_marketplace = PluginMarketplace()
+        seed_marketplace_from_tools(
+            app.state.plugin_marketplace, app.state.tool_runtime
+        )
         yield
 
     app = FastAPI(title=settings.app_name, lifespan=lifespan)
