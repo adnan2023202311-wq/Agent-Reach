@@ -41,7 +41,7 @@ def build_default_agent_registry(
     agents. Native agents take precedence for their AgentType to
     preserve backward compatibility.
     """
-    agents: list[Agent] = [ResearchAgent(model_client=model_client), CodingAgent()]
+    agents: list[Agent] = [ResearchAgent(model_client=model_client), CodingAgent(model_client=model_client)]
     registry = {agent.agent_type: agent for agent in agents}
 
     if plugin_manager is not None:
