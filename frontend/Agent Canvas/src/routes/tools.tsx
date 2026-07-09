@@ -213,7 +213,7 @@ function ToolCard({
   onToggle: (v: boolean) => void;
   onConfigure: () => void;
 }) {
-  const Icon = tool.icon;
+  const Icon = tool.icon; if (typeof Icon !== "function") return null;
   const meta = TOOL_STATUS_META[tool.status];
   const tileTone =
     tool.status === "error"
@@ -281,7 +281,7 @@ function ConfigureSheet({
     );
   }
 
-  const Icon = tool.icon;
+  const Icon = tool.icon; if (typeof Icon !== "function") return null;
   const meta = TOOL_STATUS_META[tool.status];
 
   return (

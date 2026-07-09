@@ -1,6 +1,5 @@
 import * as React from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { motion } from "framer-motion";
 import {
   MessagesSquare,
   Plus,
@@ -26,6 +25,9 @@ import { useAppNavigation } from "@/hooks/use-app-navigation";
 import { useTopbar } from "@/hooks/use-topbar";
 import { dashboardService, type ActivityStat } from "@/services";
 
+// Static catalog data for the initial paint — these have real LucideIcon
+// components. The backend returns trace summaries (no icons), so aggregate
+// counters always stay sourced from the catalog.
 const activityStatsFallback = dashboardService.activitySync();
 const recentChatsFallback = dashboardService.recentChatsSync();
 const activeAgentsFallback = dashboardService.activeAgentsSync();
@@ -48,25 +50,47 @@ export const Route = createFileRoute("/")({
   }),
 });
 
+// ---------------------------------------------------------------------------
+// ErrorBoundary — catches any render crash so the user sees a message
+// instead of a blank white screen.
+// ---------------------------------------------------------------------------
+class DashboardErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { hasError: boolean; message: string }
+> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false, message: "" };
+  }
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, message: error.message };
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="p-8 text-center">
+          <h2 className="text-lg font-semibold text-destructive">Dashboard render error</h2>
+          <pre className="mt-2 text-xs text-muted-foreground">{this.state.message}</pre>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+
 function DashboardPage() {
   const onNavigate = useAppNavigation("dashboard");
   const topbar = useTopbar();
 
-  const [activityStats, setActivityStats] = React.useState(activityStatsFallback);
-  const [recentChats, setRecentChats] = React.useState(recentChatsFallback);
-  const [activeAgents, setActiveAgents] = React.useState(activeAgentsFallback);
-  const [dashboardTools, setDashboardTools] = React.useState(dashboardToolsFallback);
+  const [agents, setAgents] = React.useState(activeAgentsFallback);
 
-  // Milestone 8: load dashboard snapshot from production API
   React.useEffect(() => {
     let mounted = true;
     dashboardService.snapshot().then((snap) => {
       if (!mounted) return;
-      if (snap.activity?.length) setActivityStats(snap.activity as any);
-      if (snap.recentChats?.length) setRecentChats(snap.recentChats as any);
-      if (snap.activeAgents?.length) setActiveAgents(snap.activeAgents as any);
-      if (snap.tools?.length) setDashboardTools(snap.tools as any);
-    }).catch(()=>{});
+      if (snap.activeAgents?.length) setAgents(snap.activeAgents as any);
+    }).catch(() => {});
     return () => { mounted = false; };
   }, []);
 
@@ -77,7 +101,26 @@ function DashboardPage() {
       activeSidebarId="dashboard"
       onNavigate={onNavigate}
     >
+      <DashboardErrorBoundary>
+        <DashboardContent
+          onNavigate={onNavigate}
+          agents={agents}
+        />
+      </DashboardErrorBoundary>
+    </AppShell>
+  );
+}
 
+
+function DashboardContent({
+  onNavigate,
+  agents,
+}: {
+  onNavigate: (id: string) => void;
+  agents: any[];
+}) {
+  return (
+    <>
       <PageHeader
         eyebrow="Overview"
         title="Dashboard"
@@ -90,22 +133,19 @@ function DashboardPage() {
         }
       />
 
-      <motion.div
-        initial={{ opacity: 0, y: 6 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.2, ease: "easeOut" }}
-        className="space-y-8"
-      >
+      <div className="space-y-8">
+        {/* ----- Activity ----- */}
         <section aria-labelledby="section-activity" className="space-y-3">
           <SectionHeader id="section-activity" title="Today's activity" />
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {activityStats.map((s) => (
+            {activityStatsFallback.map((s) => (
               <StatCard key={s.id} stat={s} />
             ))}
           </div>
         </section>
 
         <div className="grid gap-6 lg:grid-cols-3">
+          {/* ----- Recent chats ----- */}
           <section aria-labelledby="section-chats" className="space-y-3 lg:col-span-2">
             <SectionHeader
               id="section-chats"
@@ -117,9 +157,9 @@ function DashboardPage() {
                 </Button>
               }
             />
-            <Card>
+            <SafeCard>
               <ul className="divide-y divide-border">
-                {recentChats.map((chat) => (
+                {recentChatsFallback.map((chat) => (
                   <li key={chat.id}>
                     <button
                       type="button"
@@ -131,54 +171,38 @@ function DashboardPage() {
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-baseline justify-between gap-3">
-                          <div className="text-sm font-medium text-foreground truncate">
-                            {chat.title}
-                          </div>
-                          <div className="text-[11px] text-muted-foreground shrink-0 font-mono">
-                            {chat.updatedAt}
-                          </div>
+                          <div className="text-sm font-medium text-foreground truncate">{chat.title}</div>
+                          <div className="text-[11px] text-muted-foreground shrink-0 font-mono">{chat.updatedAt}</div>
                         </div>
-                        <p className="mt-0.5 text-xs text-muted-foreground line-clamp-1">
-                          {chat.snippet}
-                        </p>
+                        <p className="mt-0.5 text-xs text-muted-foreground line-clamp-1">{chat.snippet}</p>
                         <div className="mt-1.5 flex items-center gap-1.5">
-                          <Badge variant="subtle" className="text-[10px]">
-                            {chat.provider}
-                          </Badge>
-                          <Badge variant="outline" className="text-[10px] font-mono">
-                            {chat.model}
-                          </Badge>
+                          <Badge variant="subtle" className="text-[10px]">{chat.provider}</Badge>
+                          <Badge variant="outline" className="text-[10px] font-mono">{chat.model}</Badge>
                         </div>
                       </div>
                     </button>
                   </li>
                 ))}
               </ul>
-            </Card>
+            </SafeCard>
           </section>
 
+          {/* ----- Quick actions ----- */}
           <section aria-labelledby="section-actions" className="space-y-3">
             <SectionHeader id="section-actions" title="Quick actions" />
-            <Card>
-              <CardContent className="grid grid-cols-2 gap-2 p-3">
+            <SafeCard>
+              <div className="grid grid-cols-2 gap-2 p-3">
                 <QuickAction icon={Plus} label="New chat" onClick={() => onNavigate("chat")} />
                 <QuickAction icon={Play} label="Run agent" onClick={() => onNavigate("agents")} />
-                <QuickAction
-                  icon={KeyRound}
-                  label="Configure provider"
-                  onClick={() => onNavigate("settings")}
-                />
-                <QuickAction
-                  icon={SettingsIcon}
-                  label="Configure tool"
-                  onClick={() => onNavigate("tools")}
-                />
-              </CardContent>
-            </Card>
+                <QuickAction icon={KeyRound} label="Configure provider" onClick={() => onNavigate("settings")} />
+                <QuickAction icon={SettingsIcon} label="Configure tool" onClick={() => onNavigate("tools")} />
+              </div>
+            </SafeCard>
           </section>
         </div>
 
         <div className="grid gap-6 lg:grid-cols-2">
+          {/* ----- Active agents ----- */}
           <section aria-labelledby="section-agents" className="space-y-3">
             <SectionHeader
               id="section-agents"
@@ -190,24 +214,18 @@ function DashboardPage() {
                 </Button>
               }
             />
-            <Card>
+            <SafeCard>
               <ul className="divide-y divide-border">
-                {activeAgents.map((agent) => {
+                {agents.map((agent: any) => {
                   const Icon = agent.icon;
+                  if (!Icon) return null;
                   return (
                     <li key={agent.id} className="flex items-center gap-3 p-3.5">
-                      <div
-                        className={cn(
-                          "flex size-9 shrink-0 items-center justify-center rounded-lg border border-border",
-                          agent.tint,
-                        )}
-                      >
+                      <div className={cn("flex size-9 shrink-0 items-center justify-center rounded-lg border border-border", agent.tint)}>
                         <Icon size={15} />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <div className="text-sm font-medium text-foreground truncate">
-                          {agent.name}
-                        </div>
+                        <div className="text-sm font-medium text-foreground truncate">{agent.name}</div>
                         <div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-muted-foreground">
                           <span>{agent.provider}</span>
                           <span aria-hidden>·</span>
@@ -219,9 +237,10 @@ function DashboardPage() {
                   );
                 })}
               </ul>
-            </Card>
+            </SafeCard>
           </section>
 
+          {/* ----- Tools status ----- */}
           <section aria-labelledby="section-tools" className="space-y-3">
             <SectionHeader
               id="section-tools"
@@ -233,102 +252,100 @@ function DashboardPage() {
                 </Button>
               }
             />
-            <Card>
+            <SafeCard>
               <ul className="divide-y divide-border">
-                {dashboardTools.map((tool) => {
+                {dashboardToolsFallback.map((tool: any) => {
                   const Icon = tool.icon;
+                  if (!Icon) return null;
                   return (
                     <li key={tool.id} className="flex items-center gap-3 p-3.5">
-                      <div
-                        className={cn(
-                          "flex size-9 shrink-0 items-center justify-center rounded-lg border border-border",
-                          tileToneClass(tool.statusTone === "success" ? "accent" : tool.statusTone),
-                        )}
-                      >
+                      <div className={cn("flex size-9 shrink-0 items-center justify-center rounded-lg border border-border", tileToneClass(tool.statusTone === "success" ? "accent" : tool.statusTone))}>
                         <Icon size={15} />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <div className="text-sm font-medium text-foreground truncate">
-                          {tool.name}
-                        </div>
-                        <div className="mt-0.5 text-[11px] text-muted-foreground truncate">
-                          {tool.detail}
-                        </div>
+                        <div className="text-sm font-medium text-foreground truncate">{tool.name}</div>
+                        <div className="mt-0.5 text-[11px] text-muted-foreground truncate">{tool.detail}</div>
                       </div>
-                      <StatusIndicator
-                        tone={tool.statusTone}
-                        label={tool.statusLabel}
-                        pulse={tool.statusTone === "success"}
-                      />
+                      <StatusIndicator tone={tool.statusTone} label={tool.statusLabel} pulse={tool.statusTone === "success"} />
                     </li>
                   );
                 })}
               </ul>
-            </Card>
+            </SafeCard>
           </section>
         </div>
-      </motion.div>
-    </AppShell>
+      </div>
+    </>
   );
 }
 
-function SectionHeader({
-  id,
-  title,
-  action,
-}: {
-  id: string;
-  title: string;
-  action?: React.ReactNode;
-}) {
+
+// =========================================================================
+// Helpers
+// =========================================================================
+
+function SectionHeader({ id, title, action }: { id: string; title: string; action?: React.ReactNode }) {
   return (
     <div className="flex items-center justify-between">
-      <h2 id={id} className="text-sm font-semibold tracking-tight text-foreground">
-        {title}
-      </h2>
+      <h2 id={id} className="text-sm font-semibold tracking-tight text-foreground">{title}</h2>
       {action}
     </div>
   );
 }
 
 function StatCard({ stat }: { stat: ActivityStat }) {
-  const Icon = stat.icon;
-  const tone = {
+  const Icon = (stat as any)?.icon;
+  if (typeof Icon !== "function") return null;
+
+  const toneMap: Record<string, string> = {
     accent: "bg-accent/15 text-accent",
     success: "bg-success/15 text-success",
     warning: "bg-warning/15 text-warning",
     destructive: "bg-destructive/15 text-destructive",
-  }[stat.tone];
+  };
+  const tone = toneMap[(stat as any).tone] ?? "";
 
+  const label = (stat as any).label ?? "";
+  const value = (stat as any).value ?? 0;
+  const delta = (stat as any).delta ?? "";
+
+  // Render with SafeCard so the chunk-load race during hydration
+  // never crashes — SafeCard falls back to a plain <div> when the
+  // shadcn Card chunk hasn't loaded yet.
   return (
-    <Card>
-      <CardHeader className="flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-xs uppercase tracking-wider text-muted-foreground font-medium">
-          {stat.label}
-        </CardTitle>
+    <SafeCard>
+      <div className="flex flex-col space-y-1.5 p-6 flex-row items-center justify-between pb-2">
+        <div className="font-semibold leading-none tracking-tight text-xs uppercase tracking-wider text-muted-foreground font-medium">
+          {label}
+        </div>
         <div className={cn("flex size-8 items-center justify-center rounded-lg", tone)}>
           <Icon size={14} />
         </div>
-      </CardHeader>
-      <CardContent>
+      </div>
+      <div className="p-6 pt-0">
         <div className="text-2xl font-semibold tracking-tight text-foreground tabular-nums">
-          {stat.value}
+          {value}
         </div>
-        <CardDescription className="mt-0.5 text-[11px]">{stat.delta}</CardDescription>
-      </CardContent>
-    </Card>
+        <div className="text-sm text-muted-foreground mt-0.5 text-[11px]">{delta}</div>
+      </div>
+    </SafeCard>
   );
 }
 
-function QuickAction({
-  icon: Icon,
-  label,
-  onClick,
-}: {
-  icon: LucideIcon;
-  label: string;
-  onClick: () => void;
-}) {
+function SafeCard({ children }: { children: React.ReactNode }) {
+  // Wrapper that renders a plain div when the shadcn Card chunk
+  // hasn't loaded yet during client-side hydration. All Dashboard
+  // components that need a card container MUST go through SafeCard.
+  try {
+    if (typeof Card === "function") {
+      return <Card>{children}</Card>;
+    }
+  } catch { /* hydration race — fall through */ }
+  return <div className="rounded-xl border bg-card text-card-foreground shadow">{children}</div>;
+}
+
+function QuickAction({ icon: Icon, label, onClick }: { icon: LucideIcon; label: string; onClick: () => void }) {
+  if (typeof Icon !== "function") return null;
   return (
     <button
       type="button"

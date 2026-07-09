@@ -34,7 +34,7 @@ function WorkflowsPage() {
   ];
 
   return (
-    <AppShell {...topbar} sidebarItems={[...defaultSidebarItems, {id:"workflows", label:"Workflows", icon: defaultSidebarItems[3].icon}]} activeSidebarId="workflows" onNavigate={onNavigate}>
+    <AppShell {...topbar} sidebarItems={defaultSidebarItems} activeSidebarId="workflows" onNavigate={onNavigate}>
       <PageHeader eyebrow="Studio" title="Visual Workflow Studio" description="Drag-and-drop workflow editor — backend API ready (M8.3)." />
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {display.map((w:any)=>(

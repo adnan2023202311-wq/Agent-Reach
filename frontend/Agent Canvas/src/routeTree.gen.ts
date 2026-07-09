@@ -8,29 +8,59 @@
 // You should NOT make any changes in this file as it will be overwritten.
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
-// M8 — manually extended to include full AI Workspace routes
-// In production, run `bun run dev` to auto-regenerate.
-
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as WorkflowsRouteImport } from './routes/workflows'
 import { Route as ToolsRouteImport } from './routes/tools'
+import { Route as PromptsRouteImport } from './routes/prompts'
+import { Route as PlaygroundRouteImport } from './routes/playground'
+import { Route as ObservatoryRouteImport } from './routes/observatory'
+import { Route as MemoryRouteImport } from './routes/memory'
+import { Route as MarketplaceRouteImport } from './routes/marketplace'
+import { Route as KnowledgeRouteImport } from './routes/knowledge'
 import { Route as ChatRouteImport } from './routes/chat'
 import { Route as AgentsRouteImport } from './routes/agents'
+import { Route as AgentStudioRouteImport } from './routes/agent-studio'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SettingsProvidersRouteImport } from './routes/settings.providers'
 
-// M8 new routes
-import { Route as WorkflowsRouteImport } from './routes/workflows'
-import { Route as MemoryRouteImport } from './routes/memory'
-import { Route as KnowledgeRouteImport } from './routes/knowledge'
-import { Route as PromptsRouteImport } from './routes/prompts'
-import { Route as MarketplaceRouteImport } from './routes/marketplace'
-import { Route as PlaygroundRouteImport } from './routes/playground'
-import { Route as ObservatoryRouteImport } from './routes/observatory'
-import { Route as AgentStudioRouteImport } from './routes/agent-studio'
-
+const WorkflowsRoute = WorkflowsRouteImport.update({
+  id: '/workflows',
+  path: '/workflows',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ToolsRoute = ToolsRouteImport.update({
   id: '/tools',
   path: '/tools',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PromptsRoute = PromptsRouteImport.update({
+  id: '/prompts',
+  path: '/prompts',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PlaygroundRoute = PlaygroundRouteImport.update({
+  id: '/playground',
+  path: '/playground',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ObservatoryRoute = ObservatoryRouteImport.update({
+  id: '/observatory',
+  path: '/observatory',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MemoryRoute = MemoryRouteImport.update({
+  id: '/memory',
+  path: '/memory',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MarketplaceRoute = MarketplaceRouteImport.update({
+  id: '/marketplace',
+  path: '/marketplace',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const KnowledgeRoute = KnowledgeRouteImport.update({
+  id: '/knowledge',
+  path: '/knowledge',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ChatRoute = ChatRouteImport.update({
@@ -41,6 +71,11 @@ const ChatRoute = ChatRouteImport.update({
 const AgentsRoute = AgentsRouteImport.update({
   id: '/agents',
   path: '/agents',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AgentStudioRoute = AgentStudioRouteImport.update({
+  id: '/agent-studio',
+  path: '/agent-studio',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -54,117 +89,237 @@ const SettingsProvidersRoute = SettingsProvidersRouteImport.update({
   getParentRoute: () => rootRouteImport,
 } as any)
 
-// M8
-const WorkflowsRoute = WorkflowsRouteImport.update({ id: '/workflows', path: '/workflows', getParentRoute: () => rootRouteImport } as any)
-const MemoryRoute = MemoryRouteImport.update({ id: '/memory', path: '/memory', getParentRoute: () => rootRouteImport } as any)
-const KnowledgeRoute = KnowledgeRouteImport.update({ id: '/knowledge', path: '/knowledge', getParentRoute: () => rootRouteImport } as any)
-const PromptsRoute = PromptsRouteImport.update({ id: '/prompts', path: '/prompts', getParentRoute: () => rootRouteImport } as any)
-const MarketplaceRoute = MarketplaceRouteImport.update({ id: '/marketplace', path: '/marketplace', getParentRoute: () => rootRouteImport } as any)
-const PlaygroundRoute = PlaygroundRouteImport.update({ id: '/playground', path: '/playground', getParentRoute: () => rootRouteImport } as any)
-const ObservatoryRoute = ObservatoryRouteImport.update({ id: '/observatory', path: '/observatory', getParentRoute: () => rootRouteImport } as any)
-const AgentStudioRoute = AgentStudioRouteImport.update({ id: '/agent-studio', path: '/agent-studio', getParentRoute: () => rootRouteImport } as any)
-
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/agents': typeof AgentsRoute
   '/agent-studio': typeof AgentStudioRoute
+  '/agents': typeof AgentsRoute
   '/chat': typeof ChatRoute
+  '/knowledge': typeof KnowledgeRoute
+  '/marketplace': typeof MarketplaceRoute
+  '/memory': typeof MemoryRoute
+  '/observatory': typeof ObservatoryRoute
+  '/playground': typeof PlaygroundRoute
+  '/prompts': typeof PromptsRoute
   '/tools': typeof ToolsRoute
   '/workflows': typeof WorkflowsRoute
-  '/memory': typeof MemoryRoute
-  '/knowledge': typeof KnowledgeRoute
-  '/prompts': typeof PromptsRoute
-  '/playground': typeof PlaygroundRoute
-  '/observatory': typeof ObservatoryRoute
-  '/marketplace': typeof MarketplaceRoute
   '/settings/providers': typeof SettingsProvidersRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/agents': typeof AgentsRoute
   '/agent-studio': typeof AgentStudioRoute
+  '/agents': typeof AgentsRoute
   '/chat': typeof ChatRoute
+  '/knowledge': typeof KnowledgeRoute
+  '/marketplace': typeof MarketplaceRoute
+  '/memory': typeof MemoryRoute
+  '/observatory': typeof ObservatoryRoute
+  '/playground': typeof PlaygroundRoute
+  '/prompts': typeof PromptsRoute
   '/tools': typeof ToolsRoute
   '/workflows': typeof WorkflowsRoute
-  '/memory': typeof MemoryRoute
-  '/knowledge': typeof KnowledgeRoute
-  '/prompts': typeof PromptsRoute
-  '/playground': typeof PlaygroundRoute
-  '/observatory': typeof ObservatoryRoute
-  '/marketplace': typeof MarketplaceRoute
   '/settings/providers': typeof SettingsProvidersRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/agents': typeof AgentsRoute
   '/agent-studio': typeof AgentStudioRoute
+  '/agents': typeof AgentsRoute
   '/chat': typeof ChatRoute
+  '/knowledge': typeof KnowledgeRoute
+  '/marketplace': typeof MarketplaceRoute
+  '/memory': typeof MemoryRoute
+  '/observatory': typeof ObservatoryRoute
+  '/playground': typeof PlaygroundRoute
+  '/prompts': typeof PromptsRoute
   '/tools': typeof ToolsRoute
   '/workflows': typeof WorkflowsRoute
-  '/memory': typeof MemoryRoute
-  '/knowledge': typeof KnowledgeRoute
-  '/prompts': typeof PromptsRoute
-  '/playground': typeof PlaygroundRoute
-  '/observatory': typeof ObservatoryRoute
-  '/marketplace': typeof MarketplaceRoute
   '/settings/providers': typeof SettingsProvidersRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/agents' | '/agent-studio' | '/chat' | '/tools' | '/workflows' | '/memory' | '/knowledge' | '/prompts' | '/playground' | '/observatory' | '/marketplace' | '/settings/providers'
+  fullPaths:
+    | '/'
+    | '/agent-studio'
+    | '/agents'
+    | '/chat'
+    | '/knowledge'
+    | '/marketplace'
+    | '/memory'
+    | '/observatory'
+    | '/playground'
+    | '/prompts'
+    | '/tools'
+    | '/workflows'
+    | '/settings/providers'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/agents' | '/agent-studio' | '/chat' | '/tools' | '/workflows' | '/memory' | '/knowledge' | '/prompts' | '/playground' | '/observatory' | '/marketplace' | '/settings/providers'
-  id: '__root__' | '/' | '/agents' | '/agent-studio' | '/chat' | '/tools' | '/workflows' | '/memory' | '/knowledge' | '/prompts' | '/playground' | '/observatory' | '/marketplace' | '/settings/providers'
+  to:
+    | '/'
+    | '/agent-studio'
+    | '/agents'
+    | '/chat'
+    | '/knowledge'
+    | '/marketplace'
+    | '/memory'
+    | '/observatory'
+    | '/playground'
+    | '/prompts'
+    | '/tools'
+    | '/workflows'
+    | '/settings/providers'
+  id:
+    | '__root__'
+    | '/'
+    | '/agent-studio'
+    | '/agents'
+    | '/chat'
+    | '/knowledge'
+    | '/marketplace'
+    | '/memory'
+    | '/observatory'
+    | '/playground'
+    | '/prompts'
+    | '/tools'
+    | '/workflows'
+    | '/settings/providers'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  AgentsRoute: typeof AgentsRoute
   AgentStudioRoute: typeof AgentStudioRoute
+  AgentsRoute: typeof AgentsRoute
   ChatRoute: typeof ChatRoute
+  KnowledgeRoute: typeof KnowledgeRoute
+  MarketplaceRoute: typeof MarketplaceRoute
+  MemoryRoute: typeof MemoryRoute
+  ObservatoryRoute: typeof ObservatoryRoute
+  PlaygroundRoute: typeof PlaygroundRoute
+  PromptsRoute: typeof PromptsRoute
   ToolsRoute: typeof ToolsRoute
   WorkflowsRoute: typeof WorkflowsRoute
-  MemoryRoute: typeof MemoryRoute
-  KnowledgeRoute: typeof KnowledgeRoute
-  PromptsRoute: typeof PromptsRoute
-  PlaygroundRoute: typeof PlaygroundRoute
-  ObservatoryRoute: typeof ObservatoryRoute
-  MarketplaceRoute: typeof MarketplaceRoute
   SettingsProvidersRoute: typeof SettingsProvidersRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/tools': { id: '/tools'; path: '/tools'; fullPath: '/tools'; preLoaderRoute: typeof ToolsRouteImport; parentRoute: typeof rootRouteImport }
-    '/chat': { id: '/chat'; path: '/chat'; fullPath: '/chat'; preLoaderRoute: typeof ChatRouteImport; parentRoute: typeof rootRouteImport }
-    '/agents': { id: '/agents'; path: '/agents'; fullPath: '/agents'; preLoaderRoute: typeof AgentsRouteImport; parentRoute: typeof rootRouteImport }
-    '/agent-studio': { id: '/agent-studio'; path: '/agent-studio'; fullPath: '/agent-studio'; preLoaderRoute: typeof AgentStudioRouteImport; parentRoute: typeof rootRouteImport }
-    '/workflows': { id: '/workflows'; path: '/workflows'; fullPath: '/workflows'; preLoaderRoute: typeof WorkflowsRouteImport; parentRoute: typeof rootRouteImport }
-    '/memory': { id: '/memory'; path: '/memory'; fullPath: '/memory'; preLoaderRoute: typeof MemoryRouteImport; parentRoute: typeof rootRouteImport }
-    '/knowledge': { id: '/knowledge'; path: '/knowledge'; fullPath: '/knowledge'; preLoaderRoute: typeof KnowledgeRouteImport; parentRoute: typeof rootRouteImport }
-    '/prompts': { id: '/prompts'; path: '/prompts'; fullPath: '/prompts'; preLoaderRoute: typeof PromptsRouteImport; parentRoute: typeof rootRouteImport }
-    '/playground': { id: '/playground'; path: '/playground'; fullPath: '/playground'; preLoaderRoute: typeof PlaygroundRouteImport; parentRoute: typeof rootRouteImport }
-    '/observatory': { id: '/observatory'; path: '/observatory'; fullPath: '/observatory'; preLoaderRoute: typeof ObservatoryRouteImport; parentRoute: typeof rootRouteImport }
-    '/marketplace': { id: '/marketplace'; path: '/marketplace'; fullPath: '/marketplace'; preLoaderRoute: typeof MarketplaceRouteImport; parentRoute: typeof rootRouteImport }
-    '/': { id: '/'; path: '/'; fullPath: '/'; preLoaderRoute: typeof IndexRouteImport; parentRoute: typeof rootRouteImport }
-    '/settings/providers': { id: '/settings/providers'; path: '/settings/providers'; fullPath: '/settings/providers'; preLoaderRoute: typeof SettingsProvidersRouteImport; parentRoute: typeof rootRouteImport }
+    '/workflows': {
+      id: '/workflows'
+      path: '/workflows'
+      fullPath: '/workflows'
+      preLoaderRoute: typeof WorkflowsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/tools': {
+      id: '/tools'
+      path: '/tools'
+      fullPath: '/tools'
+      preLoaderRoute: typeof ToolsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/prompts': {
+      id: '/prompts'
+      path: '/prompts'
+      fullPath: '/prompts'
+      preLoaderRoute: typeof PromptsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/playground': {
+      id: '/playground'
+      path: '/playground'
+      fullPath: '/playground'
+      preLoaderRoute: typeof PlaygroundRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/observatory': {
+      id: '/observatory'
+      path: '/observatory'
+      fullPath: '/observatory'
+      preLoaderRoute: typeof ObservatoryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/memory': {
+      id: '/memory'
+      path: '/memory'
+      fullPath: '/memory'
+      preLoaderRoute: typeof MemoryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/marketplace': {
+      id: '/marketplace'
+      path: '/marketplace'
+      fullPath: '/marketplace'
+      preLoaderRoute: typeof MarketplaceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/knowledge': {
+      id: '/knowledge'
+      path: '/knowledge'
+      fullPath: '/knowledge'
+      preLoaderRoute: typeof KnowledgeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/chat': {
+      id: '/chat'
+      path: '/chat'
+      fullPath: '/chat'
+      preLoaderRoute: typeof ChatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/agents': {
+      id: '/agents'
+      path: '/agents'
+      fullPath: '/agents'
+      preLoaderRoute: typeof AgentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/agent-studio': {
+      id: '/agent-studio'
+      path: '/agent-studio'
+      fullPath: '/agent-studio'
+      preLoaderRoute: typeof AgentStudioRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings/providers': {
+      id: '/settings/providers'
+      path: '/settings/providers'
+      fullPath: '/settings/providers'
+      preLoaderRoute: typeof SettingsProvidersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  AgentsRoute: AgentsRoute,
   AgentStudioRoute: AgentStudioRoute,
+  AgentsRoute: AgentsRoute,
   ChatRoute: ChatRoute,
+  KnowledgeRoute: KnowledgeRoute,
+  MarketplaceRoute: MarketplaceRoute,
+  MemoryRoute: MemoryRoute,
+  ObservatoryRoute: ObservatoryRoute,
+  PlaygroundRoute: PlaygroundRoute,
+  PromptsRoute: PromptsRoute,
   ToolsRoute: ToolsRoute,
   WorkflowsRoute: WorkflowsRoute,
-  MemoryRoute: MemoryRoute,
-  KnowledgeRoute: KnowledgeRoute,
-  PromptsRoute: PromptsRoute,
-  PlaygroundRoute: PlaygroundRoute,
-  ObservatoryRoute: ObservatoryRoute,
-  MarketplaceRoute: MarketplaceRoute,
   SettingsProvidersRoute: SettingsProvidersRoute,
 }
-export const routeTree = rootRouteImport._addFileChildren(rootRouteChildren)._addFileTypes<FileRouteTypes>()
+export const routeTree = rootRouteImport
+  ._addFileChildren(rootRouteChildren)
+  ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}

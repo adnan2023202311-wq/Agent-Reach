@@ -18,8 +18,8 @@ function PromptsPage(){
   const [tpl,setTpl] = React.useState("You are {{role}}. Task: {{task}}");
   const [vars,setVars] = React.useState('{"role":"researcher","task":"summarize"}');
   const [out,setOut] = React.useState("");
-  React.useEffect(()=>{ api.get("/api/v1/prompts").then((d:any)=>setList(d.items||[])).catch(()=>{}); },[]);
-  const test = async()=>{ try{ const v = JSON.parse(vars); const r = await api.post("/api/v1/prompts/test",{template:tpl,variables:v}); setOut(r.rendered);}catch(e:any){ setOut(e.message);} };
+  React.useEffect(()=>{ api.get<any>("/api/v1/prompts").then((d:any)=>setList(d.items||[])).catch(()=>{}); },[]);
+  const test = async()=>{ try{ const v = JSON.parse(vars); const r: any = await api.post<any>("/api/v1/prompts/test",{template:tpl,variables:v}); setOut(r.rendered);}catch(e:any){ setOut(e.message);} };
   return (<AppShell {...topbar} sidebarItems={defaultSidebarItems} activeSidebarId="prompts" onNavigate={onNavigate}>
     <PageHeader eyebrow="Prompt Intelligence" title="Prompt Studio" description="Versioning, testing, optimization — /api/v1/prompts" />
     <div className="grid gap-4 lg:grid-cols-2">

@@ -22,7 +22,7 @@ from core.planner import RuleBasedPlanner
 from domain.interfaces import Agent, ModelClient
 from domain.models import AgentType
 from infrastructure.model_client import AnthropicModelClient
-from infrastructure.mock_model_client import MockModelClient
+from infrastructure.provider_manager import ProviderManager, SUPPORTED_PROVIDERS
 from workflows.engine import WorkflowEngine
 from workflows.orchestration import AgentOrchestrator, ToolOrchestrator
 from workflows.registry import WorkflowRegistry
@@ -61,7 +61,7 @@ def build_default_controller(settings: Optional[Settings] = None) -> MainControl
     empty, the kernel falls back to the native agent registry.
     """
     settings = settings or get_settings()
-    model_client = build_anthropic_model_client(settings)
+    model_client = build_provider_manager(settings)
 
     plugin_manager = _try_load_plugins()
 
@@ -72,29 +72,47 @@ def build_default_controller(settings: Optional[Settings] = None) -> MainControl
     return MainController(planner=RuleBasedPlanner(), dispatcher=dispatcher)
 
 
-def build_anthropic_model_client(settings: Optional[Settings] = None) -> ModelClient:
-    """Build the Anthropic ModelClient.
+def build_provider_manager(settings: Optional[Settings] = None) -> ProviderManager:
+    """Build the multi-provider routing manager (M6.3 / M9 production).
 
-    If no API key is configured for the default provider, falls back to
-    MockModelClient so the platform can boot in development mode without
-    real provider credentials. This preserves the Alpha Validation
-    behavior where the platform supported booting with a mock client.
+    Collects every configured API key from Settings and wires them into a
+    single ProviderManager. The manager implements ModelClient, so it
+    drops into the same slot the old single-provider client occupied.
+
+    When no provider has an API key configured, the manager responds to
+    every ``complete()`` call with a clear error message telling the user
+    exactly which environment variables to set — no silent mock fallback.
     """
     settings = settings or get_settings()
-    api_key = settings.provider_api_key(settings.default_model_provider)
-    if not api_key:
+
+    provider_keys: dict[str, Optional[str]] = {}
+    for provider in SUPPORTED_PROVIDERS:
+        key = settings.provider_api_key(provider)
+        provider_keys[provider] = key
+
+    configured = [p for p, k in provider_keys.items() if k]
+    if not configured:
         logger.warning(
-            "No API key configured for provider '%s' — "
-            "falling back to MockModelClient for development",
-            settings.default_model_provider,
+            "No provider API key configured — the runtime will respond with "
+            "clear error messages naming the required environment variables. "
+            "Set at least one of: %s",
+            ", ".join(f"{p.upper()}_API_KEY" for p in SUPPORTED_PROVIDERS),
         )
-        return MockModelClient(model=settings.default_model)
-    return AnthropicModelClient(
-        api_key=api_key,
-        model=settings.default_model,
+
+    manager = ProviderManager(
+        provider_keys=provider_keys,
+        default_provider=settings.default_model_provider,
     )
+    if settings.default_model:
+        manager.set_model(settings.default_model_provider, settings.default_model)
 
-
+    logger.info(
+        "ProviderManager initialised: %d/%d providers configured (%s)",
+        len(configured),
+        len(SUPPORTED_PROVIDERS),
+        ", ".join(configured) if configured else "none",
+    )
+    return manager
 def build_conversation_engine(
     settings: Optional[Settings] = None,
 ) -> ConversationEngine:

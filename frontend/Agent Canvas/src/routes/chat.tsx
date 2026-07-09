@@ -138,17 +138,7 @@ function ChatPage() {
       };
       setMessages((m) => [...m, assistant]);
     } catch (err: any) {
-      toast.error(err?.message || "Failed to send message");
-      // Fallback to mock reply to keep UI responsive in dev
-      const fallback: Message = {
-        id: `a_${Date.now()}`,
-        role: "assistant",
-        content: buildMockReply(value, mode, mode === "agent" ? agent : null),
-        createdAt: Date.now(),
-        mode,
-        agentId: mode === "agent" ? agent.id : undefined,
-      };
-      setMessages((m) => [...m, fallback]);
+      toast.error(err?.message || "Failed to send message — is the backend running on port 8000?");
     } finally {
       setSending(false);
     }
@@ -185,14 +175,8 @@ function ChatPage() {
     if (idx <= 0) return;
     const prevUser = [...messages.slice(0, idx)].reverse().find((m) => m.role === "user");
     if (!prevUser) return;
-    const now = Date.now();
-    const regenerated: Message = {
-      id: `a_${now}`,
-      role: "assistant",
-      content: buildMockReply(prevUser.content, mode, mode === "agent" ? agent : null, true),
-      createdAt: now,
-    };
-    setMessages((m) => m.map((msg, i) => (i === idx ? regenerated : msg)));
+    // Resend the last user message through the real backend.
+    sendMessage(prevUser.content);
   };
 
   const charCount = draft.length;
@@ -721,50 +705,4 @@ function CodeBlock({ language, children }: { language?: string; children: string
 function formatTime(ts: number) {
   const d = new Date(ts);
   return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-}
-
-function buildMockReply(
-  input: string,
-  mode: ChatMode,
-  agent: ChatAgentOption | null,
-  regenerated = false,
-): string {
-  const preface = regenerated ? "_Regenerated response._\n\n" : "";
-  if (mode === "agent" && agent) {
-    return `${preface}**${agent.name}** received your task:
-
-> ${input}
-
-Here's a mock plan:
-
-1. Parse the request and clarify unknowns
-2. Gather context via connected tools
-3. Draft the response and validate results
-
-\`\`\`ts
-// Example step the agent would run
-async function run(input: string) {
-  const ctx = await tools.search(input);
-  return await model.generate({ input, ctx });
-}
-\`\`\`
-
-Backend execution is not yet connected.`;
-  }
-
-  return `${preface}Here's a mock response to:
-
-> ${input}
-
-- Markdown is rendered inline
-- Lists, links and \`inline code\` all work
-- Code blocks include a copy button
-
-\`\`\`ts
-export function greet(name: string) {
-  return \`Hello, \${name}!\`;
-}
-\`\`\`
-
-Connect a provider to see real model output.`;
 }

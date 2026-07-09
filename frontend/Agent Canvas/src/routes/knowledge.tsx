@@ -17,8 +17,8 @@ function KnowledgePage(){
   const topbar = useTopbar();
   const [q,setQ] = React.useState(""); const [results,setResults] = React.useState<any[]>([]);
   const [graph,setGraph] = React.useState<any>({nodes:[],edges:[]});
-  React.useEffect(()=>{ api.get("/api/v1/knowledge/graph?limit=50").then(setGraph).catch(()=>{}); },[]);
-  const search = async()=>{ try{ const r = await api.post("/api/v1/knowledge/search",{query:q,limit:20}); setResults(r.results||[]);}catch{} };
+  React.useEffect(()=>{ api.get<any>("/api/v1/knowledge/graph?limit=50").then(setGraph).catch(()=>{}); },[]);
+  const search = async()=>{ try{ const r: any = await api.post<any>("/api/v1/knowledge/search",{query:q,limit:20}); setResults(r.results||[]);}catch{} };
   return (
     <AppShell {...topbar} sidebarItems={defaultSidebarItems} activeSidebarId="knowledge" onNavigate={onNavigate}>
       <PageHeader eyebrow="RAG Studio" title="Knowledge & RAG Studio" description="Knowledge Graph + Vector Search — /api/v1/knowledge" />

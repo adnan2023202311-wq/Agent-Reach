@@ -18,9 +18,9 @@ function AgentStudioPage(){
   const [name,setName]=React.useState("My Agent");
   const [prompt,setPrompt]=React.useState("You are a helpful assistant.");
   const [catalog,setCatalog]=React.useState<any>({catalog:[],drafts:[]});
-  React.useEffect(()=>{ api.get("/api/v1/studio/agents").then(setCatalog).catch(()=>{}); },[]);
-  const save = async()=>{ const r = await api.post("/api/v1/studio/agents/draft",{name, description:"", system_prompt:prompt, tools:[], model_provider:"anthropic", model_id:"claude-sonnet-4", temperature:0.3, max_tokens:2048, memory_enabled:true, reasoning:"balanced"}); toast.success(`Draft saved: ${r.id}`); };
-  const test = async()=>{ const id = name.toLowerCase().replace(/\s+/g,"_"); const r = await api.post(`/api/v1/studio/agents/${id}/test`,{prompt:"Hello"}); toast(r.output); };
+  React.useEffect(()=>{ api.get<any>("/api/v1/studio/agents").then(setCatalog).catch(()=>{}); },[]);
+  const save = async()=>{ const r: any = await api.post<any>("/api/v1/studio/agents/draft",{name, description:"", system_prompt:prompt, tools:[], model_provider:"anthropic", model_id:"claude-sonnet-4", temperature:0.3, max_tokens:2048, memory_enabled:true, reasoning:"balanced"}); toast.success(`Draft saved: ${r.id}`); };
+  const test = async()=>{ const id = name.toLowerCase().replace(/\s+/g,"_"); const r: any = await api.post<any>(`/api/v1/studio/agents/${id}/test`,{prompt:"Hello"}); toast(r.output); };
   return (<AppShell {...topbar} sidebarItems={defaultSidebarItems} activeSidebarId="agent-studio" onNavigate={onNavigate}>
     <PageHeader eyebrow="Builder" title="Agent Studio" description="No-code agent builder — /api/v1/studio/agents" />
     <div className="grid gap-4 lg:grid-cols-2">

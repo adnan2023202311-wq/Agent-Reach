@@ -21,6 +21,7 @@ import { cn } from "@/lib/utils";
 export interface ProviderOption {
   id: string;
   name: string;
+  tint?: string;
   status?: "ready" | "unconfigured" | "error";
 }
 

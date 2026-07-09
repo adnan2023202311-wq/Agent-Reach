@@ -20,6 +20,9 @@ export interface ConfigField {
 }
 
 export interface Tool {
+  tint?: string;
+  category?: string;
+  configFields?: ConfigField[];
   id: string;
   name: string;
   description: string;

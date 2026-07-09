@@ -15,7 +15,7 @@ function PlaygroundPage(){
   const topbar = useTopbar();
   const [prompt,setPrompt]=React.useState("Compare: What is Agent Reach?");
   const [results,setResults]=React.useState<any[]>([]);
-  const run = async()=>{ const r = await api.post("/api/v1/playground/compare",{prompt, providers:["anthropic","openai","google"]}); setResults(r.results||[]); };
+  const run = async()=>{ const r: any = await api.post<any>("/api/v1/playground/compare",{prompt, providers:["anthropic","openai","google"]}); setResults(r.results||[]); };
   return (<AppShell {...topbar} sidebarItems={defaultSidebarItems} activeSidebarId="playground" onNavigate={onNavigate}>
     <PageHeader eyebrow="Model Lab" title="Model Playground" description="Side-by-side multi-provider — /api/v1/playground" />
     <Card className="mb-4"><CardContent className="p-4 space-y-3"><Textarea value={prompt} onChange={e=>setPrompt(e.target.value)} rows={3}/><Button onClick={run} variant="accent">Compare Models</Button></CardContent></Card>

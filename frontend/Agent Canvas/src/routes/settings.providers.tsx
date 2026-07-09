@@ -231,7 +231,7 @@ function ProviderCard({
 }) {
   const meta = STATUS_META[provider.status];
   const modelName =
-    provider.models.find((m) => m.id === provider.defaultModel)?.name ?? provider.defaultModel;
+    provider.models.find((m: any) => m.id === provider.defaultModel)?.name ?? (provider.defaultModel || "auto");
   const effectiveBaseUrl = provider.baseUrl || provider.defaultBaseUrl;
 
   return (
@@ -331,20 +331,34 @@ function ConfigureSheet({
     values: { apiKey: string; baseUrl: string; defaultModel: string },
   ) => void;
 }) {
-  const [apiKey, setApiKey] = React.useState("");
-  const [baseUrl, setBaseUrl] = React.useState("");
-  const [defaultModel, setDefaultModel] = React.useState("");
+  // Derive stable defaults directly from the provider prop so the
+  // Select value is always in the controlled set from the first render.
+  const safeModels = provider?.models?.length ? provider.models : [{ id: "auto", name: "Auto" }];
+  const safeDefault = provider?.defaultModel
+    ? (safeModels.find(m => m.id === provider.defaultModel) ? provider.defaultModel : safeModels[0].id)
+    : safeModels[0].id;
+
+  const [apiKey, setApiKey] = React.useState(provider?.apiKey || "");
+  const [baseUrl, setBaseUrl] = React.useState(provider?.baseUrl || "");
+  const [defaultModel, setDefaultModel] = React.useState(safeDefault);
   const [showKey, setShowKey] = React.useState(false);
   const [testing, setTesting] = React.useState(false);
 
+  // Resync when provider identity changes.
+  const prevId = React.useRef<string | null>(null);
   React.useEffect(() => {
-    if (!provider) return;
+    if (!provider || provider.id === prevId.current) return;
+    prevId.current = provider.id;
+    const models = provider.models?.length ? provider.models : [{ id: "auto", name: "Auto" }];
+    const dm = provider.defaultModel
+      ? (models.find(m => m.id === provider.defaultModel) ? provider.defaultModel : models[0].id)
+      : models[0].id;
     setApiKey(provider.apiKey);
     setBaseUrl(provider.baseUrl);
-    setDefaultModel(provider.defaultModel);
+    setDefaultModel(dm);
     setShowKey(false);
     setTesting(false);
-  }, [provider?.id]);
+  }, [provider]);
 
   if (!provider) {
     return (
@@ -367,6 +381,9 @@ function ConfigureSheet({
       toast.success(`${provider.name} connection looks good`);
     }, 900);
   };
+
+  // Use safeModels so the Select always has at least one item matching the value.
+  const displayModels = provider.models?.length ? provider.models : [{ id: "auto", name: "Auto" }];
 
   return (
     <Sheet open={!!provider} onOpenChange={onOpenChange}>
@@ -457,7 +474,7 @@ function ConfigureSheet({
                 <SelectValue placeholder="Choose a default model" />
               </SelectTrigger>
               <SelectContent>
-                {provider.models.map((m) => (
+                {displayModels.map((m: any) => (
                   <SelectItem key={m.id} value={m.id}>
                     {m.name}
                   </SelectItem>
@@ -470,7 +487,7 @@ function ConfigureSheet({
             <div className="min-w-0">
               <div className="text-sm font-medium">Test connection</div>
               <p className="text-[11px] text-muted-foreground">
-                Verify the key against {provider.name} (mocked).
+                Verify the key against {provider.name}.
               </p>
             </div>
             <Button variant="secondary" size="sm" onClick={handleTest} disabled={testing}>

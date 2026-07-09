@@ -1,13 +1,19 @@
 /**
  * Minimal fetch-based API client.
  *
- * Currently unused by the app — service implementations are the mock ones —
- * but ready for the FastAPI backend. When the backend arrives, swap the mock
- * service implementations for HTTP-backed ones that call `api.get/post/...`.
+ * Production path: all core pages (Dashboard, Chat, Agents, Tools, Providers)
+ * route through `src/services/http/index.ts` which calls this client to reach
+ * the FastAPI backend. Workspace pages (Agent Studio, Knowledge, Playground,
+ * Prompts, Memory, Workflows, Observatory, Marketplace) call `api.get/post/…`
+ * directly.
+ *
+ * In development a `.env` file sets `VITE_API_MODE=http` and
+ * `VITE_API_BASE_URL=http://localhost:8000`. To work offline set
+ * `VITE_API_MODE=mock`.
  *
  * Configuration:
- *   - `VITE_API_BASE_URL`  base URL of the FastAPI server (e.g. https://api.example.com)
- *   - `VITE_API_MODE`      "mock" (default) | "http" — read by `src/services/index.ts`
+ *   - `VITE_API_BASE_URL`  base URL of the FastAPI server
+ *   - `VITE_API_MODE`      "http" (default) | "mock"
  */
 
 import { ApiError, type ApiErrorBody } from "./types";

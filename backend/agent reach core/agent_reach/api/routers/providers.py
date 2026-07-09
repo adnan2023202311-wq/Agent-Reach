@@ -129,16 +129,37 @@ def _provider_runtime(
     }
 
 
+# Display names and known models per provider, used by the frontend
+# topbar to build a dynamic provider/model selector.
+_PROVIDER_MODELS: dict[str, list[str]] = {
+    "anthropic": ["claude-sonnet-5", "claude-opus-4", "claude-haiku-3.5"],
+    "openai": ["gpt-4o", "gpt-4o-mini", "gpt-3.5-turbo"],
+    "google": ["gemini-2.5-flash", "gemini-2.5-pro", "gemini-2.0-flash"],
+    "deepseek": ["deepseek-chat", "deepseek-reasoner"],
+    "groq": ["llama-3.3-70b", "mixtral-8x7b"],
+    "openrouter": ["auto"],
+}
+_PROVIDER_NAMES: dict[str, str] = {
+    "anthropic": "Anthropic",
+    "openai": "OpenAI",
+    "google": "Google",
+    "deepseek": "DeepSeek",
+    "groq": "Groq",
+    "openrouter": "OpenRouter",
+}
+
 @router.get("", response_model=list[ProviderSummary])
 async def list_providers(
     settings: Settings = Depends(get_settings),
 ) -> list[ProviderSummary]:
-    """Backward-compatible provider summary (M8 shape)."""
+    """Provider summary with models for dynamic frontend selector."""
     return [
         ProviderSummary(
             id=provider_id,
+            name=_PROVIDER_NAMES.get(provider_id, provider_id),
             status="ready" if settings.is_provider_ready(provider_id) else "unconfigured",
             enabled=settings.is_provider_ready(provider_id),
+            models=_PROVIDER_MODELS.get(provider_id, []),
         )
         for provider_id in KNOWN_PROVIDERS
     ]

@@ -45,13 +45,30 @@ const agentUiMap = new Map(agentsData.map(a => [a.id, a]));
 const providerUiMap = new Map(providersData.map(p => [p.id, p]));
 const toolUiMap = new Map(toolsData.map(t => [t.id, t]));
 
+// --- safe icon resolvers (M9 final) ---
+// Backend API responses never include LucideIcon components — only strings
+// (id, name, status, etc.). Every <Icon/> access MUST resolve through the
+// static UiMaps so the rendered component reference is never undefined.
+
+function safeAgentIcon(id: string) {
+  const ui = agentUiMap.get(id);
+  if (ui?.icon) return ui.icon;
+  return agentsData[0]?.icon ?? null;
+}
+
+function safeToolIcon(id: string) {
+  const ui = toolUiMap.get(id);
+  if (ui?.icon) return ui.icon;
+  return toolsData[0]?.icon ?? null;
+}
+
 function mergeAgent(apiAgent: any): Agent {
   const ui = agentUiMap.get(apiAgent.id);
   return {
     id: apiAgent.id,
     name: apiAgent.name || ui?.name || apiAgent.id,
     description: apiAgent.description || ui?.description || "",
-    icon: ui?.icon || agentsData[0].icon,
+    icon: safeAgentIcon(apiAgent.id),
     tint: ui?.tint || "bg-accent/15 text-accent",
     status: (apiAgent.status as any) || "ready",
     enabled: apiAgent.enabled ?? true,
@@ -65,9 +82,24 @@ function mergeAgent(apiAgent: any): Agent {
 
 function mergeProvider(apiProvider: any): Provider {
   const ui = providerUiMap.get(apiProvider.id);
+  // Normalize backend models (string[]) to ProviderModel[] ({id, name})
+  // so ConfigureSheet SelectItem never gets undefined .id/.name values
+  // which would trigger the Radix "controlled → uncontrolled" warning.
+  let mergedModels: { id: string; name: string }[] = [];
+  const rawModels: any[] = apiProvider.models?.length ? apiProvider.models : (ui?.models || []);
+  for (const m of rawModels) {
+    if (typeof m === "string") {
+      mergedModels.push({ id: m, name: m });
+    } else if (m && typeof m === "object") {
+      mergedModels.push({ id: m.id || m.name || "", name: m.name || m.id || "" });
+    }
+  }
+  const dm = apiProvider.defaultModel || ui?.defaultModel || "";
+  const defaultModel = dm || (mergedModels[0]?.id || "auto");
+
   return {
     id: apiProvider.id,
-    name: ui?.name || apiProvider.id,
+    name: apiProvider.name || ui?.name || apiProvider.id,
     short: ui?.short || apiProvider.id.slice(0,2).toUpperCase(),
     tint: ui?.tint || "bg-accent/15 text-accent",
     description: ui?.description || "",
@@ -76,25 +108,25 @@ function mergeProvider(apiProvider: any): Provider {
     apiKey: ui?.apiKey || "",
     baseUrl: ui?.baseUrl || "",
     defaultBaseUrl: ui?.defaultBaseUrl || "",
-    defaultModel: ui?.defaultModel || "",
-    models: ui?.models || [],
+    defaultModel,
+    models: mergedModels,
     docsUrl: ui?.docsUrl || "",
   };
 }
-
 function mergeTool(apiTool: any): Tool {
   const ui = toolUiMap.get(apiTool.id);
   return {
     id: apiTool.id,
     name: apiTool.name || ui?.name || apiTool.id,
     description: apiTool.description || ui?.description || "",
-    icon: ui?.icon || toolsData[0].icon,
+    icon: safeToolIcon(apiTool.id),
     tint: ui?.tint || "bg-accent/15 text-accent",
     status: (apiTool.status as any) || "ready",
     enabled: apiTool.enabled ?? true,
+    fields: ui?.fields || [],
     category: apiTool.category || ui?.category || "general",
-    configFields: ui?.configFields || [],
-  };
+    configFields: ui?.configFields || ui?.fields || [],
+  } as Tool;
 }
 
 // --- Providers ---
@@ -119,6 +151,9 @@ export const providersHttpService: ProvidersService = {
     }
   },
   catalogSync: () => staticProviderCatalog,
+  // topbarProviders called sync at module load — returns static
+  // defaults. The live list is fetched asynchronously in use-topbar.ts
+  // via the providersService.list() → useEffect path.
   topbarProviders: () => staticTopbarProviders,
   topbarModels: () => staticTopbarModels,
   update: async (id, patch) => {
@@ -256,17 +291,34 @@ export const dashboardHttpService: DashboardService = {
   snapshot: async (): Promise<DashboardSnapshot> => {
     try {
       const data = await api.get<any>("/api/v1/dashboard");
+      let agents: any[] = dashboardAgents;
+      if (data.active_agents?.length) {
+        const liveIds = new Set(data.active_agents.map((a: any) => a.id));
+        const enriched = data.active_agents.map((a: any) => {
+          const ui = agentUiMap.get(a.id);
+          return {
+            id: a.id,
+            name: a.name || ui?.name || a.id,
+            provider: a.provider_id || a.defaultModelProvider || ui?.providerId || "",
+            model: a.model_id || ui?.modelId || "",
+            icon: safeAgentIcon(a.id),
+            tint: ui?.tint || "bg-accent/15 text-accent",
+            statusLabel: a.status || "ready",
+            statusTone: "success" as const,
+          };
+        });
+        const remaining = dashboardAgents.filter((a) => !liveIds.has(a.id));
+        agents = [...enriched, ...remaining];
+      }
+      // Backend returns pipeline trace dicts (request_id, latency_ms, etc.)
+      // for the activity field — NOT ActivityStat with LucideIcons. The
+      // activity aggregate counters always come from the static catalog
+      // so StatCard icons are never undefined.
       return {
-        activity: data.activity || staticActivity,
-        recentChats: data.recent_chats || dashboardRecent,
-        activeAgents: data.active_agents?.map((a:any) => ({
-          id: a.id,
-          name: a.name,
-          status: a.status,
-          tasksCompleted: 0,
-          icon: agentUiMap.get(a.id)?.icon || dashboardAgents[0]?.icon,
-        })) || dashboardAgents,
-        tools: data.tools || dashboardTools,
+        activity: staticActivity,
+        recentChats: dashboardRecent,
+        activeAgents: agents,
+        tools: dashboardTools,
       };
     } catch {
       return {
@@ -276,8 +328,7 @@ export const dashboardHttpService: DashboardService = {
         tools: dashboardTools,
       };
     }
-  },
-  snapshotSync: () => ({
+  },  snapshotSync: () => ({
     activity: staticActivity,
     recentChats: dashboardRecent,
     activeAgents: dashboardAgents,

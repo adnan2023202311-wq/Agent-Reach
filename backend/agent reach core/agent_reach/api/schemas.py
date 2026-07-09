@@ -67,6 +67,8 @@ class ProviderSummary(BaseModel):
     id: str
     status: str
     enabled: bool
+    name: str = ""
+    models: list[str] = []
 
 
 class DashboardSnapshot(BaseModel):

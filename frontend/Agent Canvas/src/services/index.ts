@@ -20,7 +20,7 @@ import { httpServices } from "./http";
 
 type ApiMode = "mock" | "http";
 const MODE: ApiMode =
-  (import.meta.env.VITE_API_MODE as ApiMode | undefined) === "http" ? "http" : "mock";
+  (import.meta.env.VITE_API_MODE as ApiMode | undefined) === "mock" ? "mock" : "http";
 
 const mockServices: Services = {
   providers: providersMockService,

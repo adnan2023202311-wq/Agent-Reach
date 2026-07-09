@@ -15,8 +15,10 @@ from composition import build_default_controller
 from config.settings import Settings
 
 
-def test_build_default_controller_falls_back_to_mock_without_api_key() -> None:
-    """M6.2 Runtime Fix: controller falls back to MockModelClient when no key."""
+def test_build_default_controller_succeeds_without_api_key() -> None:
+    """M9: ProviderManager handles missing keys gracefully — controller
+    builds successfully; the error surfaces at execution time with a
+    clear message instead of silently mocking."""
     settings = Settings(anthropic_api_key=None, default_model_provider="anthropic")
     controller = build_default_controller(settings)
     assert controller is not None

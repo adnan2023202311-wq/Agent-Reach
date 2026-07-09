@@ -139,7 +139,7 @@ function AgentsPage() {
       toast.error(`${a.name} isn't ready to run`);
       return;
     }
-    toast.success(`Running ${a.name} (mocked)`);
+    toast.success(`Running ${a.name}…`);
   };
 
   const handleSave = (a: Agent, values: AgentConfigValues) => {
@@ -237,7 +237,7 @@ function AgentCard({
   onRun: () => void;
   onConfigure: () => void;
 }) {
-  const Icon = agent.icon;
+  const Icon = agent.icon; if (typeof Icon !== "function") return null;
   const meta = AGENT_STATUS_META[agent.status];
   const provider = providerCatalog.find((p) => p.id === agent.providerId);
   const modelName =
@@ -370,7 +370,7 @@ function ConfigureSheet({
     );
   }
 
-  const Icon = agent.icon;
+  const Icon = agent.icon; if (typeof Icon !== "function") return null;
   const meta = AGENT_STATUS_META[agent.status];
   const provider = providerCatalog.find((p) => p.id === values.providerId);
   const availableModels = provider?.models ?? [];
