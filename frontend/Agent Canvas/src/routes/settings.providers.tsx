@@ -132,19 +132,45 @@ function ProvidersPage() {
     toast(`${p.name} ${next ? "enabled" : "disabled"}`);
   };
 
-  const handleSave = (
+  const handleSave = async (
     p: Provider,
     values: { apiKey: string; baseUrl: string; defaultModel: string },
   ) => {
     const hasKey = values.apiKey.trim().length > 0;
+    // Optimistic UI update so the card flips to "Ready" immediately.
     patchProvider(p.id, {
       apiKey: values.apiKey,
       baseUrl: values.baseUrl,
       defaultModel: values.defaultModel,
       status: hasKey ? "ready" : "unconfigured",
+      enabled: hasKey,
     });
     setConfiguring(null);
     toast.success(`${p.name} saved`);
+
+    // M9 fix: actually persist to the backend so the key survives a
+    // page refresh and reaches the ProviderManager for chat execution.
+    // Previously this only updated local React state — GET /api/v1/providers
+    // still returned "unconfigured" and chat failed with "X provider
+    // requires an API key".
+    try {
+      await providersService.update(p.id, {
+        apiKey: values.apiKey,
+        baseUrl: values.baseUrl,
+        defaultModel: values.defaultModel,
+      });
+      // Re-fetch the full list so the card reflects the backend's
+      // authoritative state (which merges env vars + persisted store).
+      const fresh = await providersService.list();
+      if (fresh?.length) setProviders(fresh);
+    } catch (err: any) {
+      toast.error(err?.message || `Failed to persist ${p.name} — backend may not be running`);
+      // Re-fetch to revert the optimistic update if the save failed.
+      try {
+        const fresh = await providersService.list();
+        if (fresh?.length) setProviders(fresh);
+      } catch { /* keep optimistic state if re-fetch also fails */ }
+    }
   };
 
   return (

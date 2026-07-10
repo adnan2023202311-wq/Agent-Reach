@@ -71,6 +71,14 @@ export function Topbar({
 
       <div className="ml-auto flex items-center gap-1.5">
         {actions}
+        {/* Build stamp — visible proof of which frontend build is running.
+            If you don't see this badge, you're running a stale build/cache. */}
+        <span
+          title="Frontend build stamp — confirms you're running the latest topbar-fix code"
+          className="hidden md:inline text-[10px] font-mono text-muted-foreground/60 px-1.5 py-0.5 rounded border border-border/50"
+        >
+          TOPBAR-FIX-v2.8
+        </span>
         <Button variant="ghost" size="icon-sm" aria-label="Notifications">
           <Bell size={16} />
         </Button>

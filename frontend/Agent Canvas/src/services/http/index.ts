@@ -157,11 +157,20 @@ export const providersHttpService: ProvidersService = {
   topbarProviders: () => staticTopbarProviders,
   topbarModels: () => staticTopbarModels,
   update: async (id, patch) => {
-    try {
-      await api.patch(`/api/v1/providers/${id}`, patch);
-    } catch (e) {
-      // backend returns 501 – not implemented – keep UI optimistic
-    }
+    // M9 fix: actually persist to the backend. Previously this caught
+    // the 501 silently and only did an optimistic in-memory update —
+    // so the green "Ready" badge was a lie and GET /api/v1/providers
+    // always returned "unconfigured". Now the backend has a real
+    // PATCH endpoint that writes to data/provider_config.json.
+    //
+    // Map camelCase UI fields → snake_case backend fields.
+    const backendPatch: Record<string, unknown> = {};
+    if (patch.apiKey !== undefined) backendPatch.api_key = patch.apiKey;
+    if (patch.baseUrl !== undefined) backendPatch.base_url = patch.baseUrl;
+    if (patch.defaultModel !== undefined) backendPatch.default_model = patch.defaultModel;
+    if (patch.enabled !== undefined) backendPatch.enabled = patch.enabled;
+
+    await api.patch(`/api/v1/providers/${id}`, backendPatch);
     const current = providerUiMap.get(id);
     if (!current) throw new Error(`Provider "${id}" not found`);
     return { ...current, ...patch } as Provider;

@@ -14,12 +14,24 @@
  * Configuration:
  *   - `VITE_API_BASE_URL`  base URL of the FastAPI server
  *   - `VITE_API_MODE`      "http" (default) | "mock"
+ *
+ * IMPORTANT — buildUrl precedence bug fix (v2.2):
+ *   The previous `buildUrl()` had a JS operator-precedence bug that returned
+ *   relative paths when BASE_URL was empty, causing `fetch("/api/...")` to
+ *   hit the frontend Vite/Nitro server instead of FastAPI. Fixed by always
+ *   building absolute URLs with a DEFAULT_BACKEND_URL fallback.
  */
 
 import { ApiError, type ApiErrorBody } from "./types";
 
+// Hardcoded fallback — the documented FastAPI backend default. Used only
+// when VITE_API_BASE_URL is unset. Never derived from window.location
+// (that origin is the frontend server, the source of the bug).
+const DEFAULT_BACKEND_URL = "http://127.0.0.1:8000";
+
 const BASE_URL: string =
-  (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, "") ?? "";
+  (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, "") ||
+  DEFAULT_BACKEND_URL;
 
 type Query = Record<string, string | number | boolean | null | undefined>;
 
@@ -30,18 +42,32 @@ export interface RequestOptions {
 }
 
 function buildUrl(path: string, query?: Query): string {
-  const url = new URL(
-    path.startsWith("http") ? path : `${BASE_URL}${path.startsWith("/") ? "" : "/"}${path}`,
-    // Fallback origin lets us build URLs when BASE_URL is empty (e.g. in tests).
-    typeof window === "undefined" ? "http://localhost" : window.location.origin,
-  );
+  // If the caller already passed a full URL, use it as-is.
+  if (path.startsWith("http")) {
+    const u = new URL(path);
+    if (query) {
+      for (const [k, v] of Object.entries(query)) {
+        if (v === null || v === undefined) continue;
+        u.searchParams.set(k, String(v));
+      }
+    }
+    return u.toString();
+  }
+
+  // Normalize: ensure leading slash so URL construction is predictable.
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+
+  // Always build against BASE_URL (which is either the user-set value
+  // or the DEFAULT_BACKEND_URL). Never return a relative path — that's
+  // the bug we're fixing.
+  const u = new URL(`${BASE_URL}${normalizedPath}`);
   if (query) {
-    for (const [key, value] of Object.entries(query)) {
-      if (value === null || value === undefined) continue;
-      url.searchParams.set(key, String(value));
+    for (const [k, v] of Object.entries(query)) {
+      if (v === null || v === undefined) continue;
+      u.searchParams.set(k, String(v));
     }
   }
-  return BASE_URL || path.startsWith("http") ? url.toString() : url.pathname + url.search;
+  return u.toString();
 }
 
 async function request<T>(

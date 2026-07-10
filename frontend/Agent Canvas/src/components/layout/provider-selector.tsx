@@ -42,28 +42,55 @@ interface SelectorProps<T extends { id: string; name: string }> {
   align?: "start" | "end" | "center";
 }
 
-function BaseTrigger({
-  label,
-  value,
-  placeholder,
-  status,
-  className,
-}: {
-  label?: string;
-  value?: string;
-  placeholder?: string;
-  status?: ProviderOption["status"];
-  className?: string;
-}) {
+/**
+ * BaseTrigger — the visual trigger button shared by ProviderSelector and
+ * ModelSelector.
+ *
+ * IMPORTANT (Radix `asChild` contract):
+ *   `DropdownMenuTrigger asChild` clones its child and injects `ref`,
+ *   `onPointerDown`, `onClick`, `onKeyDown`, `aria-haspopup`,
+ *   `aria-expanded`, `data-state`, `id`, and several `data-radix-*`
+ *   attributes. If the child is a plain function component that doesn't
+ *   forward the ref and spread the extra props, NONE of those reach the
+ *   underlying DOM <button> — Radix can't open the dropdown, can't
+ *   report expanded state to assistive tech, and the chevron's
+ *   `group-data-[state=open]:rotate-180` never animates.
+ *
+ *   The previous implementation did exactly that: it declared only
+ *   `label/value/placeholder/status/className` and silently dropped
+ *   everything else. Symptom: clicking the Provider trigger in the
+ *   topbar did nothing, so users only ever saw the initial `value`
+ *   ("Anthropic") — the dropdown never opened to reveal the rest.
+ *
+ *   Fix: BaseTrigger is now a `React.forwardRef` that accepts an
+ *   arbitrary `...rest` prop bag and forwards both the ref and those
+ *   props to the underlying <button>. This restores the Radix wiring
+ *   without changing the visual API.
+ */
+const BaseTrigger = React.forwardRef<
+  HTMLButtonElement,
+  {
+    label?: string;
+    value?: string;
+    placeholder?: string;
+    status?: ProviderOption["status"];
+    className?: string;
+  } & React.ButtonHTMLAttributes<HTMLButtonElement>
+>(function BaseTrigger(
+  { label, value, placeholder, status, className, ...rest },
+  ref,
+) {
   const tone =
     status === "ready" ? "success" : status === "error" ? "destructive" : "warning";
   return (
     <button
+      ref={ref}
       type="button"
       className={cn(
         "group inline-flex h-9 items-center gap-2 rounded-lg border border-border bg-surface px-2.5 text-sm text-foreground transition-colors hover:bg-surface-hover hover:border-border-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
         className,
       )}
+      {...rest}
     >
       {status && <StatusIndicator tone={tone as never} size="sm" />}
       {label && (
@@ -80,7 +107,8 @@ function BaseTrigger({
       />
     </button>
   );
-}
+});
+BaseTrigger.displayName = "BaseTrigger";
 
 export function ProviderSelector({
   value,
@@ -89,6 +117,13 @@ export function ProviderSelector({
   className,
   align = "start",
 }: SelectorProps<ProviderOption>) {
+  // Diagnostic log: confirms which options array ProviderSelector
+  // actually received.
+  // eslint-disable-next-line no-console
+  console.info(
+    `[ProviderSelector] options.length=${options.length}, ids=[${options.map(o => o.id).join(", ")}], value=${value?.id ?? "none"}`,
+  );
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -102,7 +137,7 @@ export function ProviderSelector({
       </DropdownMenuTrigger>
       <DropdownMenuContent align={align} className="w-56">
         <DropdownMenuLabel className="text-xs uppercase tracking-wider text-muted-foreground">
-          Providers
+          Providers ({options.length})
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         {options.map((p) => {

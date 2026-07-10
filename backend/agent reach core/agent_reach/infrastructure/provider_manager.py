@@ -205,20 +205,84 @@ class ProviderManager(ModelClient):
     # ------------------------------------------------------------------
 
     def _is_configured(self, provider: str) -> bool:
-        """Whether a provider has a key or a client implementation."""
+        """Whether a provider has a key or a client implementation.
+
+        M9 fix: also checks the persisted ProviderConfigStore, so keys
+        saved via the Settings UI after startup are visible without a
+        restart. Env var (already in _provider_keys) takes precedence.
+        """
         if provider in self._clients:
             return True
-        # Check if we have a key for it.
-        return bool(self._provider_keys.get(provider))
+        # Check if we have a key for it (env var from construction time).
+        if self._provider_keys.get(provider):
+            return True
+        # M9 fix: check the persisted store as a fallback.
+        try:
+            from infrastructure.provider_config_store import get_provider_config_store
+            return bool(get_provider_config_store().get_api_key(provider))
+        except Exception:  # noqa: BLE001
+            return False
 
     def _resolve_model(self, provider: str) -> str:
         """Resolve the model name for a provider (explicit → default)."""
         return self._models.get(provider, _DEFAULT_MODELS.get(provider, ""))
 
+    # M9 fix (v2.8): the runtime uses "gemini" but the config store and
+    # env vars use "google". When looking up a key for "gemini", also
+    # check "google" (and vice versa).
+    _PROVIDER_ALIASES: dict[str, str] = {
+        "google": "gemini",
+        "gemini": "google",
+    }
+
     def _get_or_create_client(self, provider: str) -> ModelClient:
-        """Return the client for ``provider``, creating it if needed."""
+        """Return the client for ``provider``, creating it if needed.
+
+        M9 fix: if the provider wasn't configured at construction time
+        (no env var), check the persisted ProviderConfigStore before
+        giving up. This makes keys saved via the Settings UI immediately
+        usable without restarting the backend.
+
+        M9 fix (v2.8): also checks the provider alias (google↔gemini)
+        so a key saved under "google" in the store is found when the
+        runtime asks for "gemini".
+        """
         if provider in self._clients:
             return self._clients[provider]
+
+        # M9 fix: if we don't have a key from env vars, try the store.
+        # Check both the runtime name and its alias (google↔gemini).
+        if not self._provider_keys.get(provider):
+            try:
+                from infrastructure.provider_config_store import get_provider_config_store
+                store = get_provider_config_store()
+                # Try the runtime name first, then the alias.
+                for name in (provider, self._PROVIDER_ALIASES.get(provider, "")):
+                    if not name:
+                        continue
+                    store_key = store.get_api_key(name)
+                    if store_key:
+                        self._provider_keys[provider] = store_key
+                        logger.info(
+                            "ProviderManager: picked up key for %s from config store (stored as %s)",
+                            provider, name,
+                        )
+                        break
+                # Also pick up base_url and model from the store.
+                for name in (provider, self._PROVIDER_ALIASES.get(provider, "")):
+                    if not name:
+                        continue
+                    store_base = store.get_base_url(name)
+                    if store_base and provider not in self._base_urls:
+                        self._base_urls[provider] = store_base
+                    store_model = store.get_default_model(name)
+                    if store_model and provider not in self._models:
+                        self._models[provider] = store_model
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(
+                    "ProviderManager: could not read config store for %s: %s",
+                    provider, exc,
+                )
 
         client = self._create_client(provider)
         self._clients[provider] = client
