@@ -85,6 +85,47 @@ innovation_router = _try_import_router("innovation")
 auto_integration_router = _try_import_router("auto_integration")
 research_lab_router = _try_import_router("research_lab")
 release_router = _try_import_router("release")
+# M10 routers
+distributed_router = _try_import_router("distributed")
+global_agents_router = _try_import_router("global_agents")
+sdk_router = _try_import_router("sdk")
+dev_platform_router = _try_import_router("dev_platform")
+workflows_v2_router = _try_import_router("workflows_v2")
+enterprise_router = _try_import_router("enterprise")
+apps_router = _try_import_router("apps")
+marketplace_v2_router = _try_import_router("marketplace_v2")
+desktop_router = _try_import_router("desktop")
+# M10.11–M10.20 routers
+mobile_router = _try_import_router("mobile")
+sync_router = _try_import_router("sync")
+monitoring_router = _try_import_router("monitoring")
+security_router = _try_import_router("security")
+billing_router = _try_import_router("billing")
+infrastructure_router = _try_import_router("infrastructure")
+connectors_v2_router = _try_import_router("connectors_v2")
+collaboration_v2_router = _try_import_router("collaboration_v2")
+app_store_router = _try_import_router("app_store")
+agi_router = _try_import_router("agi")
+# M10.21–M10.30 routers
+intelligence_router = _try_import_router("intelligence")
+planet_scale_router = _try_import_router("planet_scale")
+federation_router = _try_import_router("federation")
+evolution_router = _try_import_router("evolution")
+memory_v2_router = _try_import_router("memory_v2")
+router_v2_router = _try_import_router("router_v2")
+engineering_memory_router = _try_import_router("engineering_memory")
+error_intelligence_router = _try_import_router("error_intelligence")
+repository_router = _try_import_router("repository")
+workspace_v2_router = _try_import_router("workspace_v2")
+# M10.31–M10.38 routers
+reliability_router = _try_import_router("reliability")
+engineering_router = _try_import_router("engineering")
+engineering_extensions_router = _try_import_router("engineering_extensions")
+runtime_extensions_router = _try_import_router("runtime_extensions")
+project_dna_router = _try_import_router("project_dna")
+analytics_router = _try_import_router("analytics")
+cache_router = _try_import_router("cache")
+workflow_intelligence_router = _try_import_router("workflow_intelligence")
 from composition import (
     build_default_controller,
     build_conversation_engine,
@@ -331,6 +372,97 @@ def create_app() -> FastAPI:
     # M9.25 / M9.30
     if release_router:
         app.include_router(release_router.router)
+
+    # ── Milestone 10 routers ─────────────────────────────────────
+    # M10.1 + M10.2: Distributed Agent Cloud + Swarm Intelligence
+    if distributed_router:
+        app.include_router(distributed_router.router)
+    # M10.3: Global Agent Registry
+    if global_agents_router:
+        app.include_router(global_agents_router.router)
+    # M10.4: Plugin SDK
+    if sdk_router:
+        app.include_router(sdk_router.router)
+    # M10.5: Public Developer Platform
+    if dev_platform_router:
+        app.include_router(dev_platform_router.router)
+    # M10.6: Visual Workflow Builder V2
+    if workflows_v2_router:
+        app.include_router(workflows_v2_router.router)
+    # M10.7: Enterprise Deployment Platform
+    if enterprise_router:
+        app.include_router(enterprise_router.router)
+    # M10.8: AI Application Builder
+    if apps_router:
+        app.include_router(apps_router.router)
+    # M10.9: Marketplace V2
+    if marketplace_v2_router:
+        app.include_router(marketplace_v2_router.router)
+    # M10.10: AI Operating System Desktop
+    if desktop_router:
+        app.include_router(desktop_router.router)
+
+    # ── Milestone 10 Batch 2 routers (M10.11–M10.20) ────────────
+    if mobile_router:
+        app.include_router(mobile_router.router)
+    if sync_router:
+        app.include_router(sync_router.router)
+    if monitoring_router:
+        app.include_router(monitoring_router.router)
+    if security_router:
+        app.include_router(security_router.router)
+    if billing_router:
+        app.include_router(billing_router.router)
+    if infrastructure_router:
+        app.include_router(infrastructure_router.router)
+    if connectors_v2_router:
+        app.include_router(connectors_v2_router.router)
+    if collaboration_v2_router:
+        app.include_router(collaboration_v2_router.router)
+    if app_store_router:
+        app.include_router(app_store_router.router)
+    if agi_router:
+        app.include_router(agi_router.router)
+
+    # ── Milestone 10 Batch 3 routers (M10.21–M10.30) ────────────
+    if intelligence_router:
+        app.include_router(intelligence_router.router)
+    if planet_scale_router:
+        app.include_router(planet_scale_router.router)
+    if federation_router:
+        app.include_router(federation_router.router)
+    if evolution_router:
+        app.include_router(evolution_router.router)
+    if memory_v2_router:
+        app.include_router(memory_v2_router.router)
+    if router_v2_router:
+        app.include_router(router_v2_router.router)
+    if engineering_memory_router:
+        app.include_router(engineering_memory_router.router)
+    if error_intelligence_router:
+        app.include_router(error_intelligence_router.router)
+    if repository_router:
+        app.include_router(repository_router.router)
+    if workspace_v2_router:
+        app.include_router(workspace_v2_router.router)
+
+    # ── Milestone 10 Batch 4 routers (M10.31–M10.38) ────────────
+    if reliability_router:
+        app.include_router(reliability_router.router)
+    if engineering_router:
+        app.include_router(engineering_router.router)
+    if engineering_extensions_router:
+        app.include_router(engineering_extensions_router.router)
+    if runtime_extensions_router:
+        app.include_router(runtime_extensions_router.router)
+    if project_dna_router:
+        app.include_router(project_dna_router.router)
+    if analytics_router:
+        app.include_router(analytics_router.router)
+    if cache_router:
+        app.include_router(cache_router.router)
+    if workflow_intelligence_router:
+        app.include_router(workflow_intelligence_router.router)
 
     return app
 

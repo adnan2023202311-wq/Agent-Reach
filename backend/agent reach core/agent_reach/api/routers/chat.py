@@ -40,10 +40,13 @@ async def chat(
 
     if pipeline is not None:
         try:
+            # M9 fix: merge top-level provider_id/model_id into context
+            # so the pipeline's provider-override logic sees them. See
+            # api/schemas.py → ChatRequest.effective_context.
             result = await pipeline.process(
                 request.message,
                 session_id=request.session_id,
-                extra_context=request.context,
+                extra_context=request.effective_context(),
             )
             # M9.3: surface the trace so every chat is observable.
             return ChatResponse.from_outcome(

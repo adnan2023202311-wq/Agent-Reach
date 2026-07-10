@@ -16,6 +16,20 @@ import {
   FlaskConical,
   Eye,
   Hammer,
+  Cloud,
+  Users,
+  Shield,
+  CreditCard,
+  Server,
+  Plug,
+  Globe,
+  Network,
+  Smartphone,
+  TrendingUp,
+  Cpu,
+  GitBranch,
+  Boxes,
+  Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -35,6 +49,7 @@ export interface SidebarNavItem {
 }
 
 export const defaultSidebarItems: SidebarNavItem[] = [
+  // Core workspace
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { id: "chat", label: "Chat", icon: MessagesSquare },
   { id: "agents", label: "Agents", icon: Bot },
@@ -45,9 +60,26 @@ export const defaultSidebarItems: SidebarNavItem[] = [
   { id: "knowledge", label: "Knowledge", icon: Database },
   { id: "prompts", label: "Prompts", icon: FileText },
   { id: "playground", label: "Playground", icon: FlaskConical },
+  // M10: Scale & Intelligence
+  { id: "distributed", label: "Distributed Cloud", icon: Cloud },
+  { id: "monitoring", label: "Monitoring", icon: Activity },
   { id: "observatory", label: "Observatory", icon: Eye },
+  { id: "reliability", label: "Reliability", icon: Zap },
+  { id: "security", label: "Security", icon: Shield },
+  { id: "billing", label: "Billing", icon: CreditCard },
+  { id: "infrastructure", label: "Infrastructure", icon: Server },
+  { id: "connectors", label: "Connectors", icon: Plug },
+  // M10: Ecosystem
+  { id: "enterprise", label: "Enterprise", icon: Users },
   { id: "marketplace", label: "Marketplace", icon: Store },
-  { id: "activity", label: "Activity", icon: Activity },
+  { id: "app-store", label: "App Store", icon: Boxes },
+  { id: "mobile", label: "Mobile", icon: Smartphone },
+  // M10: Intelligence
+  { id: "analytics", label: "Analytics", icon: TrendingUp },
+  { id: "engineering", label: "Engineering", icon: Cpu },
+  { id: "federation", label: "Federation", icon: Network },
+  { id: "agi", label: "AGI Readiness", icon: Globe },
+  // Settings
   { id: "settings", label: "Settings", icon: Settings },
 ];
 

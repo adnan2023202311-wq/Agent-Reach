@@ -57,3 +57,8 @@ Thumbs.db
 
 # Tool runtime sandbox workspace (M9.6)
 **/data/tool_workspace/
+
+# Provider config store (M9 fix) — contains API keys in plaintext.
+# Persisted by PATCH /api/v1/providers/{id}, read by GET and the
+# ProviderManager. Never commit secrets.
+**/data/provider_config.json

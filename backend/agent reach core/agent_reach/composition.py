@@ -75,20 +75,39 @@ def build_default_controller(settings: Optional[Settings] = None) -> MainControl
 def build_provider_manager(settings: Optional[Settings] = None) -> ProviderManager:
     """Build the multi-provider routing manager (M6.3 / M9 production).
 
-    Collects every configured API key from Settings and wires them into a
-    single ProviderManager. The manager implements ModelClient, so it
-    drops into the same slot the old single-provider client occupied.
+    Collects every configured API key from Settings AND the persisted
+    ProviderConfigStore, then wires them into a single ProviderManager.
+    The manager implements ModelClient, so it drops into the same slot
+    the old single-provider client occupied.
 
-    When no provider has an API key configured, the manager responds to
-    every ``complete()`` call with a clear error message telling the user
-    exactly which environment variables to set — no silent mock fallback.
+    M9 fix: previously this only read env vars. Provider keys configured
+    via the Settings → Providers UI were persisted to
+    data/provider_config.json but never reached the ProviderManager —
+    so chat execution always failed with "X provider requires an API
+    key" even after the user saved a valid key. Now env vars take
+    precedence (ops override) and the store is the fallback.
     """
+    from infrastructure.provider_config_store import get_provider_config_store
+
     settings = settings or get_settings()
+    store = get_provider_config_store()
 
     provider_keys: dict[str, Optional[str]] = {}
+    base_urls: dict[str, str] = {}
+    models: dict[str, str] = {}
     for provider in SUPPORTED_PROVIDERS:
-        key = settings.provider_api_key(provider)
-        provider_keys[provider] = key
+        # Env var takes precedence; store is fallback.
+        env_key = settings.provider_api_key(provider)
+        store_key = store.get_api_key(provider)
+        provider_keys[provider] = env_key or store_key
+
+        store_base = store.get_base_url(provider)
+        if store_base:
+            base_urls[provider] = store_base
+
+        store_model = store.get_default_model(provider)
+        if store_model:
+            models[provider] = store_model
 
     configured = [p for p, k in provider_keys.items() if k]
     if not configured:
@@ -102,6 +121,8 @@ def build_provider_manager(settings: Optional[Settings] = None) -> ProviderManag
     manager = ProviderManager(
         provider_keys=provider_keys,
         default_provider=settings.default_model_provider,
+        models=models or None,
+        base_urls=base_urls or None,
     )
     if settings.default_model:
         manager.set_model(settings.default_model_provider, settings.default_model)

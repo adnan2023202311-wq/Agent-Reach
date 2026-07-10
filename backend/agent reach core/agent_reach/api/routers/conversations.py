@@ -43,9 +43,29 @@ class CreateSessionResponse(BaseModel):
 
 
 class SendMessageRequest(BaseModel):
+    """M9 fix: ``provider_id`` and ``model_id`` are accepted as top-level
+    fields (the natural shape for a Swagger/REST client) AND inside
+    ``context`` (the shape the frontend sends). Both are merged into
+    ``context`` before the request reaches the engine, so the engine's
+    provider-override logic (see conversation/engine.py → send_message)
+    sees them regardless of which shape the caller used. Mirrors
+    api/schemas.py → ChatRequest.
+    """
+
     session_id: str
     message: str = Field(..., min_length=1)
+    provider_id: Optional[str] = None
+    model_id: Optional[str] = None
     context: dict[str, Any] = Field(default_factory=dict)
+
+    def effective_context(self) -> dict[str, Any]:
+        """Merge top-level provider_id/model_id into the context dict."""
+        merged = dict(self.context)
+        if self.provider_id is not None:
+            merged.setdefault("provider_id", self.provider_id)
+        if self.model_id is not None:
+            merged.setdefault("model_id", self.model_id)
+        return merged
 
 
 class SendMessageResponse(BaseModel):
@@ -144,10 +164,13 @@ async def send_message(
 ) -> SendMessageResponse:
     """Send a message in a conversation session (one turn)."""
     try:
+        # M9 fix: merge top-level provider_id/model_id into context so
+        # the engine's provider-override logic sees them. See
+        # SendMessageRequest.effective_context above.
         result = await engine.send_message(
             session_id,
             request.message,
-            extra_context=request.context,
+            extra_context=request.effective_context(),
         )
     except ValueError as exc:
         msg = str(exc).lower()

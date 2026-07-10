@@ -24,13 +24,15 @@ compatibility and adds the runtime block.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, Field
 
 from api.dependencies import get_pipeline
 from api.schemas import ProviderSummary
 from config.settings import KNOWN_PROVIDERS, Settings, get_settings
+from infrastructure.provider_config_store import get_provider_config_store
 
 router = APIRouter(prefix="/api/v1/providers", tags=["providers"])
 
@@ -148,11 +150,36 @@ _PROVIDER_NAMES: dict[str, str] = {
     "openrouter": "OpenRouter",
 }
 
+def _merged_api_key(provider_id: str, settings: Settings) -> Optional[str]:
+    """Return the API key for a provider from env vars OR the config store.
+
+    M9 fix: Settings.provider_api_key() now reads the store as a fallback
+    automatically, so this helper just delegates to it. Kept for backward
+    compatibility with callers that imported it directly.
+    """
+    return settings.provider_api_key(provider_id)
+
+
+def _is_provider_configured(provider_id: str, settings: Settings) -> bool:
+    """True if the provider has an API key from EITHER source.
+
+    M9 fix: Settings.is_provider_ready() now reads the store as a
+    fallback automatically, so this helper just delegates to it.
+    """
+    return settings.is_provider_ready(provider_id)
+
+
 @router.get("", response_model=list[ProviderSummary])
 async def list_providers(
     settings: Settings = Depends(get_settings),
 ) -> list[ProviderSummary]:
-    """Provider summary with models for dynamic frontend selector."""
+    """Provider summary with models for dynamic frontend selector.
+
+    M9 fix: a provider is ``ready``/``enabled`` if it has an API key
+    from EITHER an environment variable OR the persisted config store
+    (data/provider_config.json). Settings.is_provider_ready() reads
+    both sources automatically.
+    """
     return [
         ProviderSummary(
             id=provider_id,
@@ -205,17 +232,71 @@ async def get_provider(
     }
 
 
+class UpdateProviderRequest(BaseModel):
+    """Body for PATCH /api/v1/providers/{provider_id}.
+
+    All fields optional — only the ones present are updated. Pass an
+    empty string or null to clear a field.
+    """
+    api_key: Optional[str] = None
+    base_url: Optional[str] = None
+    default_model: Optional[str] = None
+    enabled: Optional[bool] = None
+
+
 @router.patch("/{provider_id}")
-async def update_provider(provider_id: str) -> None:
-    """Not implemented — provider credentials come from environment
-    variables (config/settings.py), which this process can't rewrite
-    at runtime. Changing a key means editing .env and restarting, not
-    a PATCH request. See api/routers/agents.py's update_agent for the
-    same "don't fake persistence" reasoning."""
-    raise HTTPException(
-        status_code=501,
-        detail={
-            "message": "Provider credentials are set via environment variables, not the API.",
-            "code": "NOT_IMPLEMENTED",
-        },
-    )
+async def update_provider(
+    provider_id: str,
+    request: UpdateProviderRequest,
+    settings: Settings = Depends(get_settings),
+) -> dict[str, Any]:
+    """Persist a provider's configuration (API key, base URL, model).
+
+    M9 fix: previously this endpoint returned 501, claiming provider
+    credentials "come from environment variables, not the API." But
+    the frontend had a full Settings → Providers UI that called this
+    endpoint — so the UI's "Save" button was a no-op. The green
+    "Ready" badge was frontend-only state; GET /api/v1/providers
+    always returned "unconfigured" and chat execution always failed
+    with "X provider requires an API key."
+
+    Now the endpoint persists to data/provider_config.json via
+    ProviderConfigStore. GET /api/v1/providers and the
+    ProviderManager both read from env vars (precedence) OR the store
+    (fallback), so a key saved here is immediately visible everywhere.
+    """
+    if provider_id not in KNOWN_PROVIDERS:
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "message": f"Unknown provider '{provider_id}'.",
+                "code": "PROVIDER_NOT_FOUND",
+            },
+        )
+
+    patch: dict[str, Any] = {}
+    if request.api_key is not None:
+        patch["api_key"] = request.api_key
+    if request.base_url is not None:
+        patch["base_url"] = request.base_url
+    if request.default_model is not None:
+        patch["default_model"] = request.default_model
+    if request.enabled is not None:
+        patch["enabled"] = request.enabled
+
+    store = get_provider_config_store()
+    stored = store.update_provider(provider_id, patch)
+
+    # Return the merged view so the frontend gets immediate confirmation.
+    configured = _is_provider_configured(provider_id, settings)
+    return {
+        "id": provider_id,
+        "name": _PROVIDER_NAMES.get(provider_id, provider_id),
+        "status": "ready" if configured else "unconfigured",
+        "enabled": configured,
+        "models": _PROVIDER_MODELS.get(provider_id, []),
+        "configured": configured,
+        "has_api_key": bool(stored.get("api_key")),
+        "base_url": stored.get("base_url") or "",
+        "default_model": stored.get("default_model") or "",
+    }

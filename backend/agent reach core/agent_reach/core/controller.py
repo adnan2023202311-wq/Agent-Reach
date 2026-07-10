@@ -70,22 +70,67 @@ class MainController:
 
     @staticmethod
     def _assemble_answer(results: list[AgentResult]) -> str:
-        """Naive concatenation of subtask outputs into one answer string.
+        """Assemble agent outputs into a clean conversational response.
 
-        TODO(next milestone): replace with a real synthesis step (e.g.
-        feed all subtask outputs back into a model call that writes a
-        coherent final answer). Intentionally left simple here — this
-        milestone's scope is orchestration correctness, not answer
-        quality (Blueprint Section 8 assigns "final response assembly"
-        to the Main Controller, which is why this logic lives here and
-        not in api/).
+        M9 fix (v2.8): previously this did ``f"[{agent_type}] {r.output}"``
+        which stringified the entire agent output dict — leaking
+        internal payloads like ``{"instruction": "...", "code": "..."}``
+        into the chat. Now we extract the user-facing text from each
+        agent's output:
+
+        - ResearchAgent returns ``{"query": ..., "answer": ...}`` → use ``answer``
+        - CodingAgent returns ``{"instruction": ..., "code": ...}`` → use ``code``
+          (or the error/guidance if no code)
+        - Any dict with an ``"answer"``, ``"content"``, ``"text"``, or
+          ``"output"`` key → use that value
+        - A plain string → use as-is
+        - Failed agents → include a concise error line
+
+        When there's exactly one successful result, we return its text
+        directly (no ``[agent_type]`` prefix) so the user sees a clean
+        assistant message. When there are multiple results, we prefix
+        each with the agent type for context.
         """
         if not results:
             return "No subtasks were executed."
-        lines = [
-            f"[{r.agent_type.value}] {r.output}"
-            if r.status == TaskStatus.SUCCEEDED
-            else f"[{r.agent_type.value}] FAILED: {r.error}"
-            for r in results
-        ]
+
+        # Extract clean text from each result.
+        clean_parts: list[tuple[str, str]] = []  # (agent_type_label, text)
+        for r in results:
+            label = r.agent_type.value
+            if r.status != TaskStatus.SUCCEEDED:
+                # Failed — include a concise error line.
+                error_msg = r.error or "Unknown error"
+                # Truncate long errors so the chat doesn't get flooded.
+                if len(error_msg) > 300:
+                    error_msg = error_msg[:300] + "…"
+                clean_parts.append((label, f"(failed: {error_msg})"))
+                continue
+
+            output = r.output
+            if isinstance(output, str):
+                clean_parts.append((label, output))
+            elif isinstance(output, dict):
+                # Try common text-bearing keys in order of preference.
+                for key in ("answer", "code", "content", "text", "output", "result"):
+                    val = output.get(key)
+                    if val and isinstance(val, str):
+                        clean_parts.append((label, val))
+                        break
+                else:
+                    # No recognized text key — skip internal payload.
+                    # Don't leak the raw dict into chat.
+                    clean_parts.append((label, "(completed)"))
+            else:
+                # Unknown type — stringify cautiously.
+                clean_parts.append((label, str(output)[:500]))
+
+        # If there's exactly one successful result, return it directly
+        # (no prefix) for a clean conversational response.
+        successful = [p for p in clean_parts if not p[1].startswith("(failed")]
+        if len(successful) == 1 and len(clean_parts) == 1:
+            return successful[0][1]
+
+        # Multiple results (or mixed success/failure) — prefix each line.
+        lines = [f"[{label}] {text}" for label, text in clean_parts]
         return "\n".join(lines)

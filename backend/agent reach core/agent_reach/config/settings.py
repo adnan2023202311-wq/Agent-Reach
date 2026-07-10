@@ -95,20 +95,69 @@ class Settings(BaseSettings):
             raise ValueError("must be a positive number")
         return value
 
+    # M9 fix: the API/config layer uses "google" (KNOWN_PROVIDERS,
+    # google_api_key field, /api/v1/providers?id=google) while the
+    # runtime ProviderManager uses "gemini" (SUPPORTED_PROVIDERS). When
+    # the runtime asks Settings for "gemini", we must check the "google"
+    # env var and store entry. This map bridges the two namespaces in
+    # BOTH directions — a lookup for either name finds the key.
+    _PROVIDER_ALIASES: dict[str, str] = {
+        "google": "gemini",
+        "gemini": "google",
+    }
+
     def provider_api_key(self, provider: str) -> Optional[str]:
-        """Look up an API key by provider name (Blueprint Section 19)."""
-        return getattr(self, f"{provider}_api_key", None)
+        """Look up an API key by provider name (Blueprint Section 19).
+
+        M9 fix: returns the env-var key if set, otherwise falls back to
+        the persisted ProviderConfigStore (data/provider_config.json).
+        This makes keys saved via the Settings → Providers UI visible
+        to every caller of Settings — the providers router, the
+        ProviderManager, is_provider_ready(), etc. — without each one
+        needing its own store-reading logic.
+
+        Env vars take precedence so ops can override UI-configured keys.
+
+        M9 fix (v2.8): also checks the provider alias (google↔gemini)
+        so a key saved under "google" is found when the runtime asks
+        for "gemini", and vice versa.
+        """
+        # Try the requested name first, then its alias.
+        for name in (provider, self._PROVIDER_ALIASES.get(provider, "")):
+            if not name:
+                continue
+            env_key = getattr(self, f"{name}_api_key", None)
+            if env_key:
+                return env_key
+        # Fall back to the persisted config store — try both names.
+        try:
+            from infrastructure.provider_config_store import get_provider_config_store
+            store = get_provider_config_store()
+            for name in (provider, self._PROVIDER_ALIASES.get(provider, "")):
+                if not name:
+                    continue
+                key = store.get_api_key(name)
+                if key:
+                    return key
+        except Exception:  # noqa: BLE001 — never break over config lookup
+            pass
+        return None
 
     def is_provider_ready(self, provider: str) -> bool:
-        """Whether `provider` both has a key configured AND has a working
-        ModelClient implementation. Only "anthropic" satisfies the second
-        condition today (infrastructure/model_client.py) — see
-        domain/interfaces.py's ModelClient docstring for why a real
-        multi-provider router doesn't exist yet. A provider with a key
-        but no client implementation is still reported as not ready:
-        the key alone can't do anything yet.
+        """Whether ``provider`` has an API key configured (from env OR store).
+
+        M9 fix: previously this returned True only for the
+        ``default_model_provider`` (anthropic), because the old comment
+        claimed only Anthropic had a ModelClient implementation. That's
+        no longer true — infrastructure/provider_manager.py now builds
+        clients for OpenAI, Gemini, OpenRouter, DeepSeek, and Ollama
+        via the OpenAI-compatible endpoint. So any provider with a key
+        is "ready".
+
+        The key can come from an environment variable OR from the
+        persisted ProviderConfigStore (saved via the Settings UI).
         """
-        return provider == self.default_model_provider and bool(self.provider_api_key(provider))
+        return bool(self.provider_api_key(provider))
 
     def to_retry_policy(self) -> RetryPolicy:
         """Project the orchestration fields into a narrow value object.

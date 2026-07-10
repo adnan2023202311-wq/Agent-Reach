@@ -59,13 +59,35 @@ export function useTopbar(): TopbarState {
           }
         }
 
-        if (liveProviders.length > 0) setProviders(liveProviders);
+        if (liveProviders.length > 0) {
+          setProviders(liveProviders);
+          // Visible dev logs so the "only Anthropic shows" bug can be
+          // diagnosed at a glance. These confirm useTopbar DID receive
+          // the full live list from /api/v1/providers.
+          // eslint-disable-next-line no-console
+          console.info(
+            `[useTopbar] fetched ${liveProviders.length} providers:`,
+            liveProviders.map(p => p.id).join(", "),
+          );
+          // eslint-disable-next-line no-console
+          console.info(
+            `[useTopbar] Built ${liveProviders.length} provider options`,
+          );
+        }
         if (liveModels.length > 0) {
           setModels(liveModels);
+          // eslint-disable-next-line no-console
+          console.info(
+            `[useTopbar] Built ${liveModels.length} model options`,
+          );
           // Default to Anthropic if available, else first provider's first model.
           const def = liveModels.find(m => m.providerId === "anthropic") || liveModels[0];
           setActiveModel(def);
           setActiveProvider(liveProviders.find(p => p.id === def.providerId) || liveProviders[0]);
+          // eslint-disable-next-line no-console
+          console.info(
+            `[useTopbar] activeProvider=${def.providerId}, activeModel=${def.id}, providers array length=${liveProviders.length}`,
+          );
         }
       } catch { /* keep fallbacks */ }
     })();

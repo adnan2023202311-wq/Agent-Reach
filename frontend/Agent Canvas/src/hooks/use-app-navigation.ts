@@ -9,6 +9,7 @@ import { toast } from "sonner";
  * Add new sidebar destinations by adding a case to `ROUTE_MAP`.
  */
 const ROUTE_MAP: Record<string, string> = {
+  // Core workspace
   dashboard: "/",
   chat: "/chat",
   agents: "/agents",
@@ -19,8 +20,26 @@ const ROUTE_MAP: Record<string, string> = {
   knowledge: "/knowledge",
   prompts: "/prompts",
   playground: "/playground",
+  // M10: Scale & Intelligence
+  distributed: "/distributed",
+  monitoring: "/monitoring",
   observatory: "/observatory",
+  reliability: "/reliability",
+  security: "/security",
+  billing: "/billing",
+  infrastructure: "/infrastructure",
+  connectors: "/connectors",
+  // M10: Ecosystem
+  enterprise: "/enterprise",
   marketplace: "/marketplace",
+  "app-store": "/app-store",
+  mobile: "/mobile",
+  // M10: Intelligence
+  analytics: "/analytics",
+  engineering: "/engineering",
+  federation: "/federation",
+  agi: "/agi",
+  // Settings
   activity: "/observatory",
   settings: "/settings/providers",
 };

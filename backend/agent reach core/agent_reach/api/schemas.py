@@ -28,11 +28,36 @@ from domain.models import AgentResult, TaskExecutionOutcome
 
 
 class ChatRequest(BaseModel):
-    """What a client sends to POST /api/v1/chat."""
+    """What a client sends to POST /api/v1/chat.
+
+    M9 fix: ``provider_id`` and ``model_id`` are accepted as top-level
+    fields (the natural shape for a Swagger/REST client) AND inside
+    ``context`` (the shape the frontend sends). Both are merged into
+    ``context`` before the request reaches the pipeline, so the
+    pipeline's provider-override logic (see
+    core/intelligent_pipeline.py → process) sees them regardless of
+    which shape the caller used.
+    """
 
     message: str = Field(..., min_length=1, description="The user's request")
     session_id: Optional[str] = None
+    provider_id: Optional[str] = None
+    model_id: Optional[str] = None
     context: dict[str, Any] = Field(default_factory=dict)
+
+    def effective_context(self) -> dict[str, Any]:
+        """Merge top-level provider_id/model_id into the context dict.
+
+        Top-level fields take precedence over same-named keys in
+        ``context`` — the caller expressed them more explicitly, so
+        they win. Returns a new dict; never mutates ``self.context``.
+        """
+        merged = dict(self.context)
+        if self.provider_id is not None:
+            merged.setdefault("provider_id", self.provider_id)
+        if self.model_id is not None:
+            merged.setdefault("model_id", self.model_id)
+        return merged
 
 
 class AgentSummary(BaseModel):

@@ -11,13 +11,27 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as WorkflowsRouteImport } from './routes/workflows'
 import { Route as ToolsRouteImport } from './routes/tools'
+import { Route as SecurityRouteImport } from './routes/security'
+import { Route as ReliabilityRouteImport } from './routes/reliability'
 import { Route as PromptsRouteImport } from './routes/prompts'
 import { Route as PlaygroundRouteImport } from './routes/playground'
 import { Route as ObservatoryRouteImport } from './routes/observatory'
+import { Route as MonitoringRouteImport } from './routes/monitoring'
+import { Route as MobileRouteImport } from './routes/mobile'
 import { Route as MemoryRouteImport } from './routes/memory'
 import { Route as MarketplaceRouteImport } from './routes/marketplace'
 import { Route as KnowledgeRouteImport } from './routes/knowledge'
+import { Route as InfrastructureRouteImport } from './routes/infrastructure'
+import { Route as FederationRouteImport } from './routes/federation'
+import { Route as EnterpriseRouteImport } from './routes/enterprise'
+import { Route as EngineeringRouteImport } from './routes/engineering'
+import { Route as DistributedRouteImport } from './routes/distributed'
+import { Route as ConnectorsRouteImport } from './routes/connectors'
 import { Route as ChatRouteImport } from './routes/chat'
+import { Route as BillingRouteImport } from './routes/billing'
+import { Route as AppStoreRouteImport } from './routes/app-store'
+import { Route as AnalyticsRouteImport } from './routes/analytics'
+import { Route as AgiRouteImport } from './routes/agi'
 import { Route as AgentsRouteImport } from './routes/agents'
 import { Route as AgentStudioRouteImport } from './routes/agent-studio'
 import { Route as IndexRouteImport } from './routes/index'
@@ -31,6 +45,16 @@ const WorkflowsRoute = WorkflowsRouteImport.update({
 const ToolsRoute = ToolsRouteImport.update({
   id: '/tools',
   path: '/tools',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SecurityRoute = SecurityRouteImport.update({
+  id: '/security',
+  path: '/security',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ReliabilityRoute = ReliabilityRouteImport.update({
+  id: '/reliability',
+  path: '/reliability',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PromptsRoute = PromptsRouteImport.update({
@@ -48,6 +72,16 @@ const ObservatoryRoute = ObservatoryRouteImport.update({
   path: '/observatory',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MonitoringRoute = MonitoringRouteImport.update({
+  id: '/monitoring',
+  path: '/monitoring',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MobileRoute = MobileRouteImport.update({
+  id: '/mobile',
+  path: '/mobile',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const MemoryRoute = MemoryRouteImport.update({
   id: '/memory',
   path: '/memory',
@@ -63,9 +97,59 @@ const KnowledgeRoute = KnowledgeRouteImport.update({
   path: '/knowledge',
   getParentRoute: () => rootRouteImport,
 } as any)
+const InfrastructureRoute = InfrastructureRouteImport.update({
+  id: '/infrastructure',
+  path: '/infrastructure',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FederationRoute = FederationRouteImport.update({
+  id: '/federation',
+  path: '/federation',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EnterpriseRoute = EnterpriseRouteImport.update({
+  id: '/enterprise',
+  path: '/enterprise',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EngineeringRoute = EngineeringRouteImport.update({
+  id: '/engineering',
+  path: '/engineering',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DistributedRoute = DistributedRouteImport.update({
+  id: '/distributed',
+  path: '/distributed',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ConnectorsRoute = ConnectorsRouteImport.update({
+  id: '/connectors',
+  path: '/connectors',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ChatRoute = ChatRouteImport.update({
   id: '/chat',
   path: '/chat',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BillingRoute = BillingRouteImport.update({
+  id: '/billing',
+  path: '/billing',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AppStoreRoute = AppStoreRouteImport.update({
+  id: '/app-store',
+  path: '/app-store',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AnalyticsRoute = AnalyticsRouteImport.update({
+  id: '/analytics',
+  path: '/analytics',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AgiRoute = AgiRouteImport.update({
+  id: '/agi',
+  path: '/agi',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AgentsRoute = AgentsRouteImport.update({
@@ -93,13 +177,27 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/agent-studio': typeof AgentStudioRoute
   '/agents': typeof AgentsRoute
+  '/agi': typeof AgiRoute
+  '/analytics': typeof AnalyticsRoute
+  '/app-store': typeof AppStoreRoute
+  '/billing': typeof BillingRoute
   '/chat': typeof ChatRoute
+  '/connectors': typeof ConnectorsRoute
+  '/distributed': typeof DistributedRoute
+  '/engineering': typeof EngineeringRoute
+  '/enterprise': typeof EnterpriseRoute
+  '/federation': typeof FederationRoute
+  '/infrastructure': typeof InfrastructureRoute
   '/knowledge': typeof KnowledgeRoute
   '/marketplace': typeof MarketplaceRoute
   '/memory': typeof MemoryRoute
+  '/mobile': typeof MobileRoute
+  '/monitoring': typeof MonitoringRoute
   '/observatory': typeof ObservatoryRoute
   '/playground': typeof PlaygroundRoute
   '/prompts': typeof PromptsRoute
+  '/reliability': typeof ReliabilityRoute
+  '/security': typeof SecurityRoute
   '/tools': typeof ToolsRoute
   '/workflows': typeof WorkflowsRoute
   '/settings/providers': typeof SettingsProvidersRoute
@@ -108,13 +206,27 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/agent-studio': typeof AgentStudioRoute
   '/agents': typeof AgentsRoute
+  '/agi': typeof AgiRoute
+  '/analytics': typeof AnalyticsRoute
+  '/app-store': typeof AppStoreRoute
+  '/billing': typeof BillingRoute
   '/chat': typeof ChatRoute
+  '/connectors': typeof ConnectorsRoute
+  '/distributed': typeof DistributedRoute
+  '/engineering': typeof EngineeringRoute
+  '/enterprise': typeof EnterpriseRoute
+  '/federation': typeof FederationRoute
+  '/infrastructure': typeof InfrastructureRoute
   '/knowledge': typeof KnowledgeRoute
   '/marketplace': typeof MarketplaceRoute
   '/memory': typeof MemoryRoute
+  '/mobile': typeof MobileRoute
+  '/monitoring': typeof MonitoringRoute
   '/observatory': typeof ObservatoryRoute
   '/playground': typeof PlaygroundRoute
   '/prompts': typeof PromptsRoute
+  '/reliability': typeof ReliabilityRoute
+  '/security': typeof SecurityRoute
   '/tools': typeof ToolsRoute
   '/workflows': typeof WorkflowsRoute
   '/settings/providers': typeof SettingsProvidersRoute
@@ -124,13 +236,27 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/agent-studio': typeof AgentStudioRoute
   '/agents': typeof AgentsRoute
+  '/agi': typeof AgiRoute
+  '/analytics': typeof AnalyticsRoute
+  '/app-store': typeof AppStoreRoute
+  '/billing': typeof BillingRoute
   '/chat': typeof ChatRoute
+  '/connectors': typeof ConnectorsRoute
+  '/distributed': typeof DistributedRoute
+  '/engineering': typeof EngineeringRoute
+  '/enterprise': typeof EnterpriseRoute
+  '/federation': typeof FederationRoute
+  '/infrastructure': typeof InfrastructureRoute
   '/knowledge': typeof KnowledgeRoute
   '/marketplace': typeof MarketplaceRoute
   '/memory': typeof MemoryRoute
+  '/mobile': typeof MobileRoute
+  '/monitoring': typeof MonitoringRoute
   '/observatory': typeof ObservatoryRoute
   '/playground': typeof PlaygroundRoute
   '/prompts': typeof PromptsRoute
+  '/reliability': typeof ReliabilityRoute
+  '/security': typeof SecurityRoute
   '/tools': typeof ToolsRoute
   '/workflows': typeof WorkflowsRoute
   '/settings/providers': typeof SettingsProvidersRoute
@@ -141,13 +267,27 @@ export interface FileRouteTypes {
     | '/'
     | '/agent-studio'
     | '/agents'
+    | '/agi'
+    | '/analytics'
+    | '/app-store'
+    | '/billing'
     | '/chat'
+    | '/connectors'
+    | '/distributed'
+    | '/engineering'
+    | '/enterprise'
+    | '/federation'
+    | '/infrastructure'
     | '/knowledge'
     | '/marketplace'
     | '/memory'
+    | '/mobile'
+    | '/monitoring'
     | '/observatory'
     | '/playground'
     | '/prompts'
+    | '/reliability'
+    | '/security'
     | '/tools'
     | '/workflows'
     | '/settings/providers'
@@ -156,13 +296,27 @@ export interface FileRouteTypes {
     | '/'
     | '/agent-studio'
     | '/agents'
+    | '/agi'
+    | '/analytics'
+    | '/app-store'
+    | '/billing'
     | '/chat'
+    | '/connectors'
+    | '/distributed'
+    | '/engineering'
+    | '/enterprise'
+    | '/federation'
+    | '/infrastructure'
     | '/knowledge'
     | '/marketplace'
     | '/memory'
+    | '/mobile'
+    | '/monitoring'
     | '/observatory'
     | '/playground'
     | '/prompts'
+    | '/reliability'
+    | '/security'
     | '/tools'
     | '/workflows'
     | '/settings/providers'
@@ -171,13 +325,27 @@ export interface FileRouteTypes {
     | '/'
     | '/agent-studio'
     | '/agents'
+    | '/agi'
+    | '/analytics'
+    | '/app-store'
+    | '/billing'
     | '/chat'
+    | '/connectors'
+    | '/distributed'
+    | '/engineering'
+    | '/enterprise'
+    | '/federation'
+    | '/infrastructure'
     | '/knowledge'
     | '/marketplace'
     | '/memory'
+    | '/mobile'
+    | '/monitoring'
     | '/observatory'
     | '/playground'
     | '/prompts'
+    | '/reliability'
+    | '/security'
     | '/tools'
     | '/workflows'
     | '/settings/providers'
@@ -187,13 +355,27 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AgentStudioRoute: typeof AgentStudioRoute
   AgentsRoute: typeof AgentsRoute
+  AgiRoute: typeof AgiRoute
+  AnalyticsRoute: typeof AnalyticsRoute
+  AppStoreRoute: typeof AppStoreRoute
+  BillingRoute: typeof BillingRoute
   ChatRoute: typeof ChatRoute
+  ConnectorsRoute: typeof ConnectorsRoute
+  DistributedRoute: typeof DistributedRoute
+  EngineeringRoute: typeof EngineeringRoute
+  EnterpriseRoute: typeof EnterpriseRoute
+  FederationRoute: typeof FederationRoute
+  InfrastructureRoute: typeof InfrastructureRoute
   KnowledgeRoute: typeof KnowledgeRoute
   MarketplaceRoute: typeof MarketplaceRoute
   MemoryRoute: typeof MemoryRoute
+  MobileRoute: typeof MobileRoute
+  MonitoringRoute: typeof MonitoringRoute
   ObservatoryRoute: typeof ObservatoryRoute
   PlaygroundRoute: typeof PlaygroundRoute
   PromptsRoute: typeof PromptsRoute
+  ReliabilityRoute: typeof ReliabilityRoute
+  SecurityRoute: typeof SecurityRoute
   ToolsRoute: typeof ToolsRoute
   WorkflowsRoute: typeof WorkflowsRoute
   SettingsProvidersRoute: typeof SettingsProvidersRoute
@@ -213,6 +395,20 @@ declare module '@tanstack/react-router' {
       path: '/tools'
       fullPath: '/tools'
       preLoaderRoute: typeof ToolsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/security': {
+      id: '/security'
+      path: '/security'
+      fullPath: '/security'
+      preLoaderRoute: typeof SecurityRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reliability': {
+      id: '/reliability'
+      path: '/reliability'
+      fullPath: '/reliability'
+      preLoaderRoute: typeof ReliabilityRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/prompts': {
@@ -236,6 +432,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ObservatoryRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/monitoring': {
+      id: '/monitoring'
+      path: '/monitoring'
+      fullPath: '/monitoring'
+      preLoaderRoute: typeof MonitoringRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/mobile': {
+      id: '/mobile'
+      path: '/mobile'
+      fullPath: '/mobile'
+      preLoaderRoute: typeof MobileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/memory': {
       id: '/memory'
       path: '/memory'
@@ -257,11 +467,81 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof KnowledgeRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/infrastructure': {
+      id: '/infrastructure'
+      path: '/infrastructure'
+      fullPath: '/infrastructure'
+      preLoaderRoute: typeof InfrastructureRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/federation': {
+      id: '/federation'
+      path: '/federation'
+      fullPath: '/federation'
+      preLoaderRoute: typeof FederationRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/enterprise': {
+      id: '/enterprise'
+      path: '/enterprise'
+      fullPath: '/enterprise'
+      preLoaderRoute: typeof EnterpriseRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/engineering': {
+      id: '/engineering'
+      path: '/engineering'
+      fullPath: '/engineering'
+      preLoaderRoute: typeof EngineeringRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/distributed': {
+      id: '/distributed'
+      path: '/distributed'
+      fullPath: '/distributed'
+      preLoaderRoute: typeof DistributedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/connectors': {
+      id: '/connectors'
+      path: '/connectors'
+      fullPath: '/connectors'
+      preLoaderRoute: typeof ConnectorsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/chat': {
       id: '/chat'
       path: '/chat'
       fullPath: '/chat'
       preLoaderRoute: typeof ChatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/billing': {
+      id: '/billing'
+      path: '/billing'
+      fullPath: '/billing'
+      preLoaderRoute: typeof BillingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/app-store': {
+      id: '/app-store'
+      path: '/app-store'
+      fullPath: '/app-store'
+      preLoaderRoute: typeof AppStoreRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/analytics': {
+      id: '/analytics'
+      path: '/analytics'
+      fullPath: '/analytics'
+      preLoaderRoute: typeof AnalyticsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/agi': {
+      id: '/agi'
+      path: '/agi'
+      fullPath: '/agi'
+      preLoaderRoute: typeof AgiRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/agents': {
@@ -299,13 +579,27 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AgentStudioRoute: AgentStudioRoute,
   AgentsRoute: AgentsRoute,
+  AgiRoute: AgiRoute,
+  AnalyticsRoute: AnalyticsRoute,
+  AppStoreRoute: AppStoreRoute,
+  BillingRoute: BillingRoute,
   ChatRoute: ChatRoute,
+  ConnectorsRoute: ConnectorsRoute,
+  DistributedRoute: DistributedRoute,
+  EngineeringRoute: EngineeringRoute,
+  EnterpriseRoute: EnterpriseRoute,
+  FederationRoute: FederationRoute,
+  InfrastructureRoute: InfrastructureRoute,
   KnowledgeRoute: KnowledgeRoute,
   MarketplaceRoute: MarketplaceRoute,
   MemoryRoute: MemoryRoute,
+  MobileRoute: MobileRoute,
+  MonitoringRoute: MonitoringRoute,
   ObservatoryRoute: ObservatoryRoute,
   PlaygroundRoute: PlaygroundRoute,
   PromptsRoute: PromptsRoute,
+  ReliabilityRoute: ReliabilityRoute,
+  SecurityRoute: SecurityRoute,
   ToolsRoute: ToolsRoute,
   WorkflowsRoute: WorkflowsRoute,
   SettingsProvidersRoute: SettingsProvidersRoute,

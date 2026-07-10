@@ -160,12 +160,62 @@ class IntelligentPipeline:
     # ── Main entry ──────────────────────────────────────────────
 
     async def process(self, message: str, *, session_id: Optional[str] = None, extra_context: Optional[dict[str, Any]] = None) -> PipelineResult:
-        """Process a user request through the full intelligent pipeline."""
+        """Process a user request through the full intelligent pipeline.
+
+        M9 fix: ``extra_context`` may carry ``provider_id`` and
+        ``model_id`` from the frontend topbar selector OR from a
+        Swagger/REST client's top-level request fields (merged into
+        ``extra_context`` by ChatRequest.effective_context /
+        SendMessageRequest.effective_context). We apply them to the
+        shared ProviderManager BEFORE dispatch so every agent in this
+        turn uses the user-selected provider, not the backend's
+        hardcoded default. Without this, the pipeline always ran
+        through Anthropic even after the user selected OpenRouter or
+        Google.
+        """
         pipeline_start = time.perf_counter()
         trace = PipelineTrace()
         effective_message = message
         effective_session = session_id or "default"
         tutti_export: Optional[dict[str, Any]] = None
+
+        # ── Provider override (M9 fix) ─────────────────────────────
+        applied_provider: Optional[str] = None
+        applied_model: Optional[str] = None
+        if extra_context:
+            ctx_provider = extra_context.get("provider_id") or extra_context.get("provider")
+            ctx_model = extra_context.get("model_id") or extra_context.get("model")
+            pm = self._get_provider_manager()
+            if pm is not None and ctx_provider:
+                # Normalize frontend/API name → runtime ProviderManager
+                # name (e.g. "google" → "gemini"). See
+                # conversation/engine.py's _to_runtime_provider_name.
+                runtime_provider = _to_runtime_provider_name(ctx_provider)
+                try:
+                    pm.set_provider(runtime_provider)
+                    applied_provider = runtime_provider
+                    logger.info(
+                        "Pipeline: applied user-selected provider override: %s (frontend) → %s (runtime)",
+                        ctx_provider, runtime_provider,
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    logger.warning(
+                        "Pipeline: could not switch to provider %r (runtime %r): %s — falling back to %s",
+                        ctx_provider, runtime_provider, exc, pm.active_provider,
+                    )
+                if ctx_model and applied_provider:
+                    try:
+                        pm.set_model(applied_provider, ctx_model)
+                        applied_model = ctx_model
+                    except Exception as exc:  # noqa: BLE001
+                        logger.warning(
+                            "Pipeline: could not set model %r for provider %r: %s",
+                            ctx_model, applied_provider, exc,
+                        )
+                if applied_provider:
+                    trace.router_provider = applied_provider
+                    trace.router_active = True
+                    trace.router_strategy = "user-selected"
 
         try:
             effective_message = await self._step_router(effective_message, effective_session, trace)
@@ -195,6 +245,26 @@ class IntelligentPipeline:
         await self._publish_events(trace, effective_session)
 
         return PipelineResult(outcome=outcome, trace=trace, tutti_export=tutti_export if self._config.enable_tutti else None)
+
+    def _get_provider_manager(self):
+        """Reach the shared ProviderManager the controller's agents use.
+
+        Mirrors ConversationEngine._get_provider_manager — see that
+        method for the full reasoning. Returns None if the plumbing
+        isn't reachable (e.g. test stubs), in which case the override
+        is silently skipped.
+        """
+        try:
+            dispatcher = getattr(self._controller, "_dispatcher", None)
+            if dispatcher is None:
+                return None
+            agents = getattr(dispatcher, "_agents", None)
+            if not agents:
+                return None
+            first_agent = next(iter(agents.values()))
+            return getattr(first_agent, "_model_client", None)
+        except Exception:  # noqa: BLE001
+            return None
 
     async def _publish_events(self, trace: PipelineTrace, session_id: str) -> None:
         """Publish the M9.24 event chain for one completed execution.
@@ -269,16 +339,34 @@ class IntelligentPipeline:
     # ── Steps ───────────────────────────────────────────────────
 
     async def _step_router(self, message: str, session_id: str, trace: PipelineTrace) -> str:
+        # M9 fix: if the user explicitly selected a provider (stamped
+        # in trace.router_provider by process() before this step), do
+        # NOT let the auto-router overwrite it. The user's choice wins.
+        # Previously this step called router.select_provider() and
+        # overwrote both the trace and (implicitly) confused the
+        # observatory into reporting a provider the runtime never used.
         if not self._config.enable_router:
             return message
         start = time.perf_counter()
         try:
-            router = self._get_router()
-            provider = router.select_provider()
-            trace.router_provider = provider
-            trace.router_strategy = "auto"
-            trace.router_active = True
-            enhanced = f"[Provider: {provider}] {message}"
+            # If the user already picked a provider, keep it and skip
+            # the auto-router entirely. The trace already reflects the
+            # user's choice (set in process()).
+            if trace.router_provider and trace.router_strategy == "user-selected":
+                logger.info(
+                    "Router step: skipping auto-selection — user explicitly "
+                    "selected %s",
+                    trace.router_provider,
+                )
+                trace.router_active = True
+                enhanced = f"[Provider: {trace.router_provider}] {message}"
+            else:
+                router = self._get_router()
+                provider = router.select_provider()
+                trace.router_provider = provider
+                trace.router_strategy = "auto"
+                trace.router_active = True
+                enhanced = f"[Provider: {provider}] {message}"
         except Exception as exc:
             logger.warning("Router step failed: %s", exc)
             trace.errors.append(f"router: {exc}")
@@ -608,3 +696,28 @@ class IntelligentPipeline:
         self._trace_store.clear()
         self._total_requests = 0
         self._total_latency_ms = 0.0
+
+
+# ---------------------------------------------------------------------------
+# Provider name normalization (M9 fix)
+# ---------------------------------------------------------------------------
+
+# Same mapping as conversation/engine.py's _FRONTEND_TO_RUNTIME_PROVIDER.
+# Duplicated rather than imported to keep core/ from depending on
+# conversation/ (core is the inner layer; conversation wraps it). The
+# mapping is tiny and unlikely to change often.
+_FRONTEND_TO_RUNTIME_PROVIDER: dict[str, str] = {
+    "google": "gemini",
+}
+
+
+def _to_runtime_provider_name(frontend_name: str) -> str:
+    """Map a frontend/API provider id to the runtime ProviderManager id.
+
+    Returns the input unchanged when no mapping exists — the caller
+    (set_provider) will raise ConfigurationError if the runtime doesn't
+    support it, which we catch and log as a warning.
+    """
+    if not frontend_name:
+        return frontend_name
+    return _FRONTEND_TO_RUNTIME_PROVIDER.get(frontend_name, frontend_name)
